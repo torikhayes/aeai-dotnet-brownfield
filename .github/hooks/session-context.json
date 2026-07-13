@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bash -c 'PROJ=$(git -C \"$(pwd)\" rev-parse --show-toplevel 2>/dev/null || pwd); LATEST=$(ls \"$PROJ/.github/memory/session/\"*.md 2>/dev/null | sort | tail -1); if [ -n \"$LATEST\" ]; then echo \"{\\\"systemMessage\\\": \\\"Previous session context loaded from $LATEST:\\\\n$(cat $LATEST | head -60)\\\"}\" ; fi'",
+        "timeout": 5
+      }
+    ]
+  }
+}
