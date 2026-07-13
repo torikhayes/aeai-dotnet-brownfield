@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <FakeVersion>1.2.3</FakeVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Fake.Central.Package" Version="$(FakeVersion)" />
+    <PackageVersion Include="Fake.Literal.Package" Version="9.9.9" />
+    <PackageVersion Include="Fake.Test.Only.Package" Version="2.0.0" />
+  </ItemGroup>
+</Project>

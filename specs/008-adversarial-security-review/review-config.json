@@ -1,0 +1,11 @@
+{
+  "codeReview": {
+    "trigger": "on-demand"
+  },
+  "dependencyReview": {
+    "trigger": "on-demand"
+  },
+  "adversarialReview": {
+    "trigger": "on-demand"
+  }
+}

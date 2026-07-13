@@ -1,0 +1,279 @@
+[
+  {
+    "id": "run-2026-07-13T19-31-52Z-fa91e4",
+    "timestamp": "2026-07-13T19:31:52Z",
+    "capabilities": [
+      "adversarial"
+    ],
+    "scope": "full",
+    "trigger": "manual",
+    "findingIds": [
+      "adv-0001",
+      "adv-0002"
+    ],
+    "scenarios": [
+      {
+        "id": "scn-0001",
+        "description": "Unauthenticated DELETE on catalog item to test for missing authorization check",
+        "targetService": "Catalog.API",
+        "outcome": "finding",
+        "findingId": "adv-0001"
+      },
+      {
+        "id": "scn-0002",
+        "description": "Unauthenticated POST to create a catalog item to test for missing authorization check",
+        "targetService": "Catalog.API",
+        "outcome": "finding",
+        "findingId": "adv-0002"
+      },
+      {
+        "id": "scn-0003",
+        "description": "Boundary: negative catalog item id (-1)",
+        "targetService": "Catalog.API",
+        "outcome": "no-issue",
+        "findingId": null
+      },
+      {
+        "id": "scn-0004",
+        "description": "Boundary: nonexistent large catalog item id (999999999)",
+        "targetService": "Catalog.API",
+        "outcome": "no-issue",
+        "findingId": null
+      },
+      {
+        "id": "scn-0005",
+        "description": "Resource exhaustion probe: pageSize=999999999 on GET /api/catalog/items",
+        "targetService": "Catalog.API",
+        "outcome": "no-issue",
+        "findingId": null
+      },
+      {
+        "id": "scn-0006",
+        "description": "Unauthenticated GET /api/orders (list) to test for cross-buyer data leak",
+        "targetService": "Ordering.API",
+        "outcome": "no-issue",
+        "findingId": null
+      },
+      {
+        "id": "scn-0007",
+        "description": "Unauthenticated GET /api/orders/1 to test for cross-buyer order access",
+        "targetService": "Ordering.API",
+        "outcome": "no-issue",
+        "findingId": null
+      },
+      {
+        "id": "scn-0008",
+        "description": "Malformed POST body (missing required fields) on /api/orders",
+        "targetService": "Ordering.API",
+        "outcome": "no-issue",
+        "findingId": null
+      },
+      {
+        "id": "scn-0009",
+        "description": "Password-grant token request with invalid/unregistered client_id",
+        "targetService": "Identity.API",
+        "outcome": "no-issue",
+        "findingId": null
+      }
+    ],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-47-20Z-1862fa",
+    "timestamp": "2026-07-13T19:47:20Z",
+    "capabilities": [
+      "dependency"
+    ],
+    "scope": "full",
+    "trigger": "manual",
+    "findingIds": [
+      "dep-0001",
+      "dep-0002",
+      "dep-0003",
+      "dep-0004"
+    ],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-50-54Z-1bfe82",
+    "timestamp": "2026-07-13T19:50:54Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "full",
+    "trigger": "manual",
+    "findingIds": [],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-51-40Z-cffa06",
+    "timestamp": "2026-07-13T19:51:40Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "src/Ordering.API,src/Ordering.Domain,src/Ordering.Infrastructure,src/OrderProcessor",
+    "trigger": "manual",
+    "findingIds": [
+      "code-0016",
+      "code-0017",
+      "code-0018",
+      "code-0019",
+      "code-0020",
+      "code-0022",
+      "code-0023",
+      "code-0030",
+      "code-0031",
+      "code-0032",
+      "code-0033"
+    ],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-51-40Z-fadbeb",
+    "timestamp": "2026-07-13T19:51:40Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "src/Basket.API,src/PaymentProcessor",
+    "trigger": "manual",
+    "findingIds": [
+      "code-0052",
+      "code-0053",
+      "code-0054",
+      "code-0055"
+    ],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-51-40Z-86b410",
+    "timestamp": "2026-07-13T19:51:40Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "src/Catalog.API",
+    "trigger": "manual",
+    "findingIds": [
+      "code-0008",
+      "code-0009",
+      "code-0010",
+      "code-0011",
+      "code-0012",
+      "code-0013",
+      "code-0014",
+      "code-0015"
+    ],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-51-43Z-0ea7fa",
+    "timestamp": "2026-07-13T19:51:43Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "src/WebApp,src/WebAppComponents,src/Webhooks.API,src/WebhookClient",
+    "trigger": "manual",
+    "findingIds": [],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-52-22Z-a4f7b0",
+    "timestamp": "2026-07-13T19:52:22Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "src/WebApp,src/WebAppComponents",
+    "trigger": "manual",
+    "findingIds": [
+      "code-0025",
+      "code-0026",
+      "code-0027",
+      "code-0028",
+      "code-0029",
+      "code-0035",
+      "code-0038",
+      "code-0039",
+      "code-0041",
+      "code-0043",
+      "code-0044",
+      "code-0045",
+      "code-0047",
+      "code-0048",
+      "code-0050",
+      "code-0051"
+    ],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-52-30Z-38fa09",
+    "timestamp": "2026-07-13T19:52:30Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "full",
+    "trigger": "manual",
+    "findingIds": [
+      "code-0016",
+      "code-0017",
+      "code-0018",
+      "code-0019",
+      "code-0020",
+      "code-0022",
+      "code-0023",
+      "code-0030",
+      "code-0031",
+      "code-0032",
+      "code-0033"
+    ],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-56-21Z-05525d",
+    "timestamp": "2026-07-13T19:56:21Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "src/Webhooks.API,src/WebhookClient",
+    "trigger": "manual",
+    "findingIds": [
+      "code-0001",
+      "code-0002",
+      "code-0003",
+      "code-0004",
+      "code-0005",
+      "code-0006",
+      "code-0007"
+    ],
+    "scenarios": [],
+    "failedPartway": false
+  },
+  {
+    "id": "run-2026-07-13T19-59-41Z-cdc3e1",
+    "timestamp": "2026-07-13T19:59:41Z",
+    "capabilities": [
+      "code"
+    ],
+    "scope": "src/Identity.API/",
+    "trigger": "manual",
+    "findingIds": [
+      "code-0021",
+      "code-0024",
+      "code-0034",
+      "code-0036",
+      "code-0037",
+      "code-0040",
+      "code-0042",
+      "code-0046",
+      "code-0049"
+    ],
+    "scenarios": [],
+    "failedPartway": false
+  }
+]

