@@ -1,50 +1,158 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+Version change: 1.0.0 → 1.1.0 (MINOR: expanded Principle III with concrete token-issuance rules)
+Modified principles:
+  - III. Attribute-Based, Anti-Fraud Valuation — added specifics on award timing (post
+    automated-verification, not instant, not human-review-gated), valuation mechanism
+    (category × condition lookup table, not brand/model pricing), and an explicit statement
+    that anti-farming caps are a deliberate non-constraint for now
+Added sections: none (this amendment extends an existing principle)
+Removed sections: none
+Templates requiring updates:
+  ✅ .specify/templates/plan-template.md — Constitution Check gate is derived from this file at
+     runtime; no hardcoded principle references to update
+  ✅ .specify/templates/spec-template.md — no constitution-specific references found
+  ✅ .specify/templates/tasks-template.md — no constitution-specific references found
+  ⚠ README.md / docs — still describe eShop/AdventureWorks branding and Ordering's owned
+     fulfillment flow, which Principle VI excludes; recommend a doc pass alongside the first
+     respec feature spec/plan rather than as part of this amendment
+Follow-up TODOs: the category × condition lookup table itself (exact categories, grades, token
+  values) is intentionally left to the data model / feature spec, not the constitution.
+-->
+
+<!--
+Sync Impact Report (1.0.0)
+Version change: [TEMPLATE] → 1.0.0 (initial ratification)
+Modified principles: none (first fill of template placeholders)
+Added sections:
+  - Core Principles I–VI (Microservices Continuity; Token Ledger Integrity & Non-Convertibility;
+    Attribute-Based, Anti-Fraud Valuation; Trust & Safety in Physical Trades; Risk-Based Testing
+    Discipline; Marketplace Scope Boundary: No Fulfillment Ownership)
+  - Technology Constraints
+  - Development Workflow & Governance
+Removed sections: none
+Follow-up TODOs: none blocking. RATIFICATION_DATE set to the date of this ratification session.
+-->
+
+# 2001: A Golf Odyssey Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Microservices Continuity
+Repurpose eShop's existing .NET Aspire microservices rather than rewriting from scratch:
+Catalog.API becomes the club listing service, Basket.API becomes the trade cart, Ordering.API
+becomes the trade/transaction service, PaymentProcessor becomes the token wallet & ledger, and
+Identity.API remains the authentication/authorization boundary. New golf-specific domain logic
+MUST be added within these service boundaries — or as new services following the same
+Aspire/EventBus conventions — not as a parallel architecture.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Rationale: preserves the proven Aspire orchestration, EventBus integration-event patterns, and
+service boundaries already established in this codebase, minimizing risk while re-theming the
+domain.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Token Ledger Integrity & Non-Convertibility (NON-NEGOTIABLE)
+Tokens are the marketplace's unit of trust and MUST be handled with the same rigor as real
+money, even though they aren't real money:
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+- Every token-affecting action (listing reward, purchase debit, refund, cancellation) MUST be
+  idempotent and fully auditable — replaying the same request MUST NOT double-credit or
+  double-debit a balance.
+- Tokens MUST NOT be purchased with real currency and MUST NOT be cashed out or redeemed for
+  real currency, gift cards, or any other real-world value. Tokens exist only to circulate
+  within the marketplace.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+Rationale: idempotency and auditability prevent silent economic corruption and give a reliable
+trail for investigating disputes; non-convertibility keeps the platform outside
+money-transmission and gambling regulatory territory.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### III. Attribute-Based, Anti-Fraud Valuation
+Token rewards for a listed club MUST be computed from verifiable club attributes (category,
+condition grade) rather than a flat rate or a seller's arbitrary declared value. Valuation
+logic MUST run server-side and be re-derivable from stored attributes — a client MUST NOT be
+able to supply the token amount directly. Sellers who misrepresent attributes to inflate their
+reward are subject to listing removal and token clawback.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+Token issuance MUST follow these specifics:
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- **Valuation mechanism**: the token amount for a listing MUST come from a maintained lookup
+  table keyed on (club category × condition grade) — e.g., driver / fairway wood / hybrid /
+  iron set / wedge / putter / other, crossed with New / Excellent / Good / Fair. The table MAY
+  be retuned over time, but any given listing's reward MUST remain re-derivable from the table
+  version in effect when that listing was awarded (audit trail per Principle II).
+- **Award timing**: tokens MUST be credited only after an automated verification step passes
+  (e.g., condition-grade plausibility check, required photo count/presence) — not at the instant
+  a listing is submitted, and MUST NOT be gated on manual/human review.
+- **Anti-farming caps**: no per-user rate caps, active-listing limits, or unsold-listing
+  clawbacks are mandated by this constitution today. This is a deliberate choice, not an
+  omission — such limits MAY be introduced later as an ordinary feature/policy change without
+  requiring a constitutional amendment, unless they would conflict with a Core Principle.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Rationale: rewards must reflect real club value to make the marketplace credible, but that only
+holds if valuation is tamper-resistant. A category × condition lookup table gives differentiated,
+auditable rewards without the maintenance burden of full brand/model pricing. Automated (not
+instant, not human-gated) verification balances fraud resistance against seller-experience
+latency. Leaving anti-farming caps unconstrained keeps the constitution focused on what's
+actually non-negotiable today, while Principle II's audit trail still lets clawback/caps be
+added later as a normal feature.
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+### IV. Trust & Safety in Physical Trades
+Clubs are physical goods, and condition claims materially affect trade outcomes. The following
+are constitutional requirements, not optional feature polish:
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- A listing's condition grade MUST be backed by evidence (photos) sufficient for a reasonable
+  buyer to verify the claim.
+- Opening a dispute on a completed trade MUST freeze the associated token settlement (both the
+  buyer's spent tokens and the seller's earned tokens) until the dispute is resolved.
+- A seller found to have misrepresented a club's condition is accountable for the trade outcome
+  (token reversal, listing/account penalties per trust & safety policy).
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Rationale: unresolved disputes over physical-goods condition are the single biggest threat to
+marketplace trust, so these guarantees are locked in at the constitutional level rather than
+left to a later feature spec.
+
+### V. Risk-Based Testing Discipline
+Test rigor scales with financial/trust blast radius rather than being applied uniformly:
+
+- Code paths touching the token ledger, trade state machine, or valuation calculation MUST
+  follow test-first development (TDD): a failing test is written and reviewed before
+  implementation, and the suite MUST cover idempotent-retry and concurrent-balance-mutation
+  scenarios.
+- All other code (browsing, UI, notifications, etc.) follows standard PR review with tests
+  required, but not strictly test-first.
+
+Rationale: focuses the most expensive engineering discipline on the paths where correctness has
+real economic and trust consequences, rather than mandating TDD everywhere.
+
+### VI. Marketplace Scope Boundary: No Fulfillment Ownership
+The platform's responsibility ends at the token transaction (listing reward and purchase
+debit/credit). Shipping, delivery tracking, and physical hand-off between buyer and seller are
+explicitly out of scope for the platform to own or guarantee.
+
+Rationale: keeps scope bounded — the platform is a trust/valuation/token layer over an existing
+peer-to-peer shipping reality, not a logistics company. This intentionally departs from eShop's
+original Ordering delivery-tracking flow.
+
+## Technology Constraints
+
+- The application MUST remain a .NET 9 / .NET Aspire solution, reusing the existing service
+  topology (Catalog.API, Basket.API, Ordering.API, Identity.API, PaymentProcessor,
+  EventBus/EventBusRabbitMQ, WebApp) as the starting point for the golf marketplace re-theme.
+- Inter-service communication crossing a service boundary MUST continue to use the existing
+  integration-event/EventBus pattern (e.g., `ClubListed`, `TradeCompleted`, `TokensAwarded`),
+  consistent with how Ordering/Basket/Catalog already communicate.
+- Token balances and the token ledger MUST be persisted in a durable, transactional store (never
+  cache-only), consistent with Principle II.
+
+## Development Workflow & Governance
+
+- This constitution supersedes ad hoc practice. Any plan, spec, or PR that conflicts with a Core
+  Principle MUST either change to comply, or document the conflict and rationale in the plan's
+  Complexity Tracking section for explicit approval.
+- Amendments require team consensus via pull request review — no single-person unilateral change
+  to a Core Principle. The amending PR's description MUST state the version bump
+  (MAJOR/MINOR/PATCH) and the rationale for it.
+- Every PR touching token, trade, or valuation code MUST self-report compliance with Principles
+  II, III, and V in its description; reviewers MUST block merge if evidence of idempotency/audit
+  test coverage is missing.
+
+**Version**: 1.1.0 | **Ratified**: 2026-07-13 | **Last Amended**: 2026-07-13
