@@ -82,10 +82,10 @@ A user types a natural language query (e.g., "forgiving iron for high handicappe
 - **FR-001**: A "Sell My Club" page MUST be added to WebApp with a form covering: club name, type (dropdown), brand (dropdown), condition (dropdown), manufacture year, price, description, and tags.
 - **FR-002**: The "Sell My Club" page MUST require authentication; unauthenticated users are redirected to login.
 - **FR-003**: A "My Listings" page MUST be added to WebApp, showing the authenticated seller's listings fetched from `GET /api/catalog/items/my-listings`.
-- **FR-004**: Each listing in "My Listings" MUST display its `TokenPotentialScore`, view count, favorite count, and average rating.
+- **FR-004**: Each listing in "My Listings" MUST display its `TokenPrice` (tokens earned/required, once verification completes and spec 004 assigns it), view count, favorite count, and average rating. Listings pending verification MUST show a "verification pending" state instead of a token amount.
 - **FR-005**: A token balance widget MUST be added to the site header for authenticated users, displaying the current balance fetched from `GET /api/tokens/balance`.
 - **FR-006**: Clicking the token balance widget MUST open a slide-out or modal panel displaying recent token transactions from `GET /api/tokens/transactions`.
-- **FR-007**: The basket/checkout flow MUST include a token redemption input allowing the buyer to specify how many tokens to apply, with a live-updated net price preview.
+- **FR-007**: The basket/checkout flow MUST include a "Pay with Cash" / "Pay with Tokens" payment method toggle (per spec 005). The "Pay with Tokens" option MUST be disabled with an explanatory tooltip when the buyer's balance is below the item's `TokenPrice` or when `TokenPrice` has not yet been assigned.
 - **FR-008**: The semantic search input (already present) MUST display golf-appropriate placeholder text (e.g., "Search clubs by feel, flex, or style...").
 - **FR-009**: All new UI components MUST be implemented as Razor components in `WebAppComponents` where reusable across WebApp and HybridApp.
 - **FR-010**: If Token.API is unavailable, the token widget MUST degrade gracefully (show "—" or hide) without breaking page load.
@@ -93,7 +93,7 @@ A user types a natural language query (e.g., "forgiving iron for high handicappe
 ### Key Entities
 
 - **No new backend entities** — all data comes from existing API endpoints defined in Phases 2–5.
-- **New Razor components**: `ListClubForm`, `MyListingsPage`, `TokenWalletWidget`, `TokenTransactionPanel`, `TokenRedemptionInput`.
+- **New Razor components**: `ListClubForm`, `MyListingsPage`, `TokenWalletWidget`, `TokenTransactionPanel`, `PaymentMethodToggle`.
 
 ## Success Criteria *(mandatory)*
 
@@ -102,7 +102,7 @@ A user types a natural language query (e.g., "forgiving iron for high handicappe
 - **SC-001**: A seller can complete the "List a Club" form and submit in under 90 seconds from a cold start.
 - **SC-002**: "My Listings" page loads in under 2 seconds under normal conditions.
 - **SC-003**: Token balance in the header is current as of the last page load (stale-while-revalidate acceptable).
-- **SC-004**: The checkout token redemption input correctly prevents applying more tokens than the club price or the user's balance (client-side validation).
+- **SC-004**: The checkout payment method toggle correctly disables "Pay with Tokens" whenever the buyer's balance is insufficient for the item's `TokenPrice` (client-side validation, enforced again server-side per spec 005).
 - **SC-005**: All new pages pass Playwright e2e tests covering the happy path for listing and purchasing a club.
 
 ## Assumptions
