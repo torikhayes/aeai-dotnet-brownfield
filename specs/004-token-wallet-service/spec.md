@@ -78,9 +78,10 @@ A seller filling in a club listing can see the exact token reward they will earn
 
 ### Edge Cases
 
-- What happens if a token award event is delivered twice (duplicate event ID)?
-- Can a token balance go negative?
-- What happens if the lookup table is updated after a listing is submitted but before the verified event is processed?
+- What happens if a token award event is delivered twice (duplicate event ID)? → Idempotency via `RelatedEventId` deduplication (FR-008).
+- Can a token balance go negative? → No; rejected with explicit error (FR-010).
+- What happens if the lookup table is updated after a listing is submitted but before the verified event is processed? → The active version at event processing time is used (FR-006); the version is stored in `TokenTransaction` for auditability.
+- Can a seller earn tokens by resubmitting a failed listing after adding the required photos? → No — tokens are awarded at most once per `CatalogItemId`; subsequent verified events for the same listing are rejected (FR-008).
 
 ## Requirements *(mandatory)*
 
@@ -91,20 +92,22 @@ A seller filling in a club listing can see the exact token reward they will earn
 - **FR-003**: PaymentProcessor MUST expose `GET /api/tokens/balance` (authenticated) returning the caller's current integer token balance. This requires adding an HTTP host to PaymentProcessor alongside its existing background worker.
 - **FR-004**: PaymentProcessor MUST expose `GET /api/tokens/transactions` (authenticated) returning a paginated list of token transactions for the caller in reverse chronological order.
 - **FR-005**: `Catalog.API` MUST publish `ClubListingVerifiedIntegrationEvent` when an authenticated listing passes automated verification (photo count ≥ required minimum for the given condition grade). The event MUST carry: `SellerId`, `CatalogItemId`, `Category` (club type), `Condition` (New/Excellent/Good/Fair), `EventId`.
-- **FR-006**: PaymentProcessor MUST subscribe to `ClubListingVerifiedIntegrationEvent` and credit tokens to the seller's wallet using the active lookup table entry for (`Category`, `Condition`). The `TokenTransaction` record MUST store the `LookupTableVersion` in effect at award time.
+- **FR-006**: PaymentProcessor MUST subscribe to `ClubListingVerifiedIntegrationEvent` and credit tokens to the seller's wallet using the **active lookup table version at the time the event is processed** (not at submission time). The `TokenTransaction` record MUST store the `LookupTableVersion` that was active at processing time.
 - **FR-007**: The token award lookup table MUST be a server-side data structure (e.g., configuration file or DB table) keyed on (`ClubCategory` × `ConditionGrade`). The table MAY be retuned; each version increment MUST be recorded so past awards remain re-derivable.
-- **FR-008**: All token award operations MUST be idempotent: processing the same `ClubListingVerifiedIntegrationEvent` `EventId` twice MUST NOT double-credit the balance.
-- **FR-009**: A `TokenWallet` entity MUST store `UserId` and `Balance` (int). A `TokenTransaction` entity MUST store `Id`, `UserId`, `Amount`, `Reason`, `RelatedEventId`, `LookupTableVersion` (nullable, populated on earn transactions), and `CreatedAt`.
+- **FR-008**: All token award operations MUST be idempotent at two levels: (1) processing the same `EventId` twice MUST NOT double-credit the balance; (2) a `CatalogItemId` MUST NOT be credited more than once across all `ClubListingVerifiedIntegrationEvent` instances — if a listing is resubmitted after a failed verification, the second verified event MUST be rejected with no token credit. PaymentProcessor MUST track awarded `CatalogItemId` values in a deduplicated set in `tokendb`.
+- **FR-009**: A `TokenWallet` entity MUST store `UserId` and `Balance` (int) and `RowVersion`. A wallet row MUST be created only on first token award, not on first balance read. `GET /api/tokens/balance` MUST return `0` for users with no wallet row without writing to the database. A `TokenTransaction` entity MUST store `Id`, `UserId`, `Amount`, `Reason`, `RelatedEventId`, `LookupTableVersion` (nullable, populated on earn transactions), and `CreatedAt`.
 - **FR-010**: Token balances MUST NOT go below zero; any debit that would result in a negative balance MUST be rejected with an explicit error.
-- **FR-011**: An internal `POST /api/tokens/spend` endpoint MUST be added to PaymentProcessor for use by the checkout flow (spec 005); it MUST NOT be publicly accessible and MUST be called service-to-service from Ordering.API only.
+- **FR-010a**: `TokenWallet` MUST use EF Core optimistic concurrency via a `RowVersion` (byte[]) concurrency token. Any balance mutation that encounters a concurrency conflict MUST retry the operation (re-read, re-validate, re-save) up to a configurable maximum number of retries before returning an error.
+- **FR-011**: An internal `POST /api/tokens/spend` endpoint MUST be added to PaymentProcessor for use by the checkout flow (spec 005). It MUST be bound to the internal Aspire service-mesh network only (not registered on the public-facing port), making it accessible exclusively via Aspire service-discovery URIs from Ordering.API and unreachable from outside the Aspire host.
 - **FR-012**: PaymentProcessor MUST expose `GET /api/tokens/reward-preview?category={cat}&condition={cond}` (unauthenticated) returning the current lookup table value for the given category and condition, for use by the listing form UI.
 - **FR-013**: Code paths touching the token ledger, award calculation, and balance mutation MUST be developed test-first (Principle V): failing tests written and reviewed before implementation, covering idempotent-retry and concurrent-balance-mutation scenarios.
 
 ### Key Entities
 
-- **TokenWallet**: `UserId` (string), `Balance` (int). One wallet per user, auto-created on first award.
+- **TokenWallet**: `UserId` (string), `Balance` (int), `RowVersion` (byte[], concurrency token). Created on first token award only — `GET /balance` for a user with no awards returns `0` without creating a row.
 - **TokenTransaction**: `Id`, `UserId`, `Amount` (positive = earn, negative = spend), `Reason` (string), `RelatedEventId` (string, for idempotency), `LookupTableVersion` (string, nullable), `CreatedAt`.
 - **TokenAwardLookupEntry**: `ClubCategory` (string), `ConditionGrade` (string), `TokenAmount` (int), `TableVersion` (string), `EffectiveFrom` (datetime). Immutable once published; new tunings insert new rows rather than updating existing ones.
+- **TokenAwardedListing**: `CatalogItemId` (string, unique index). Records which listings have already been awarded tokens, used to enforce the one-award-per-listing rule (FR-008).
 - **ClubListingVerifiedIntegrationEvent**: `SellerId`, `CatalogItemId`, `Category`, `Condition`, `EventId`, `OccurredOn`.
 
 ## Success Criteria *(mandatory)*
@@ -115,7 +118,7 @@ A seller filling in a club listing can see the exact token reward they will earn
 - **SC-002**: Duplicate event delivery does not result in duplicate token credits — verified by processing the same `EventId` twice and confirming balance changes only once.
 - **SC-003**: Every earn transaction record includes a `LookupTableVersion` value from which the award amount can be independently re-derived.
 - **SC-004**: Balance endpoint responds in under 200ms under normal load.
-- **SC-005**: A token balance never falls below zero regardless of concurrent spend requests — verified by a concurrent-mutation integration test.
+- **SC-005**: A token balance never falls below zero regardless of concurrent spend requests — verified by a concurrent-mutation integration test that triggers simultaneous debits exceeding the balance; the RowVersion conflict causes retries, and the final balance must be ≥ 0 with exactly the correct net debit applied.
 - **SC-006**: Token ledger tests achieve 100% path coverage of idempotency, concurrent debit, and award calculation logic (Principle V TDD requirement).
 
 ## Assumptions
@@ -128,10 +131,15 @@ A seller filling in a club listing can see the exact token reward they will earn
 - Tokens are platform-only credits (Principle II): they cannot be purchased, cashed out, or exchanged for real currency or gift cards.
 - No token expiry is implemented in this phase.
 
-**Acceptance Scenarios**:
+## Clarifications
 
-1. **Given** seller A's club has a `TokenPotentialScore` of 50, **When** the club is sold (order paid), **Then** seller A's token balance increases by 50 tokens.
-2. **Given** a club was listed by a platform admin (no `SellerId`), **When** the club is sold, **Then** no token award event is generated.
+### Session 2026-07-13
+
+- Q: How should concurrent balance mutations be handled? → A: Optimistic concurrency — `RowVersion` (byte[]) concurrency token on `TokenWallet` via EF Core; retry on conflict.
+- Q: How is the internal spend endpoint isolated from external access? → A: Aspire service-mesh network isolation — endpoint bound to internal network only, reachable via service discovery from Ordering.API, not exposed on the public port.
+- Q: When the lookup table updates between listing submission and verified event processing, which version is used for the award? → A: The active version at event processing time; stored in `TokenTransaction.LookupTableVersion` for audit trail.
+- Q: Should `GET /balance` create a wallet row for users with no awards? → A: No — return `0` without writing; wallet row created only on first token award.
+- Q: Can a seller earn tokens by resubmitting a failed listing after adding required photos? → A: No — tokens awarded at most once per `CatalogItemId`; subsequent verified events for the same listing are rejected.
 3. **Given** the Token service is temporarily unavailable, **When** a club sells, **Then** the sale still completes and the token award is retried via the event bus (at-least-once delivery).
 
 ---
