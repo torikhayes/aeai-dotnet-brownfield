@@ -17,6 +17,8 @@ var app = builder.Build();
 app.MapDefaultEndpoints();
 
 app.UseStatusCodePages();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapCatalogApi();
 

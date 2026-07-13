@@ -71,6 +71,11 @@ public partial class CatalogContextSeed(
             await context.CatalogItems.AddRangeAsync(catalogItems);
             logger.LogInformation("Seeded catalog with {NumItems} items", context.CatalogItems.Count());
             await context.SaveChangesAsync();
+
+            // Seed inserts items with explicit IDs, so the PostgreSQL sequence is not advanced.
+            // Reset the sequence to MAX(id) so subsequent auto-increment inserts don't conflict.
+            await context.Database.ExecuteSqlRawAsync(
+                "SELECT setval(pg_get_serial_sequence('\"Catalog\"', 'Id'), COALESCE((SELECT MAX(\"Id\") FROM \"Catalog\"), 0) + 1, false)");
         }
     }
 
