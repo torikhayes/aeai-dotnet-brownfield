@@ -8,6 +8,18 @@ using Pgvector.EntityFrameworkCore;
 
 namespace eShop.Catalog.API;
 
+/// <summary>Request DTO for seller club listing creation (Spec 002).</summary>
+public record CreateSellerListingRequest(
+    [Required] string Name,
+    [Required] decimal Price,
+    [Required] int CatalogTypeId,
+    [Required] int CatalogBrandId,
+    [Required] string Condition,
+    [Required] string[] PhotoUrls,
+    string? Description = null,
+    int? ManufactureYear = null,
+    string? Tags = null);
+
 public static class CatalogApi
 {
     public static IEndpointRouteBuilder MapCatalogApi(this IEndpointRouteBuilder app)
@@ -127,6 +139,31 @@ public static class CatalogApi
             .WithName("DeleteItem")
             .WithSummary("Delete catalog item")
             .WithDescription("Delete the specified catalog item");
+
+        // Seller listing endpoints (Spec 002)
+        api.MapPost("/items/listings", CreateSellerListing)
+            .WithName("CreateSellerListing")
+            .WithSummary("Create a seller listing")
+            .WithDescription("Create a new club listing as an authenticated seller")
+            .WithTags("Seller")
+            .RequireAuthorization();
+        api.MapGet("/items/by-seller/{sellerId}", GetItemsBySeller)
+            .WithName("GetItemsBySeller")
+            .WithSummary("Get items by seller")
+            .WithDescription("Get paginated club listings for a given seller")
+            .WithTags("Seller");
+        api.MapGet("/items/my-listings", GetMyListings)
+            .WithName("GetMyListings")
+            .WithSummary("Get my listings")
+            .WithDescription("Get the authenticated seller's own club listings")
+            .WithTags("Seller")
+            .RequireAuthorization();
+        api.MapDelete("/items/listings/{id:int}", DeactivateListing)
+            .WithName("DeactivateListing")
+            .WithSummary("Deactivate a seller listing")
+            .WithDescription("Set AvailableStock to 0 for the caller's own listing")
+            .WithTags("Seller")
+            .RequireAuthorization();
 
         return app;
     }
@@ -602,6 +639,130 @@ public static class CatalogApi
     private static string? GetCurrentUserId(HttpContext httpContext) =>
         httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? httpContext.User.FindFirstValue("sub");
+    // -------------------------------------------------------------------------
+    // Spec 002: Seller listing endpoints
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] ValidConditions = ["New", "Excellent", "Good", "Fair"];
+
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public static async Task<Results<Created, BadRequest<string>>> CreateSellerListing(
+        [AsParameters] CatalogServices services,
+        ClaimsPrincipal user,
+        CreateSellerListingRequest request)
+    {
+        var sellerId = user.GetUserId();
+        if (string.IsNullOrEmpty(sellerId))
+            return TypedResults.BadRequest("Unable to determine seller identity.");
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return TypedResults.BadRequest("Name is required.");
+
+        if (request.Price <= 0)
+            return TypedResults.BadRequest("Price must be greater than zero.");
+
+        if (!ValidConditions.Contains(request.Condition))
+            return TypedResults.BadRequest($"Condition must be one of: {string.Join(", ", ValidConditions)}.");
+
+        if (request.PhotoUrls is null || request.PhotoUrls.Length == 0)
+            return TypedResults.BadRequest("At least one photo URL is required (Principle IV).");
+
+        var item = new CatalogItem(request.Name)
+        {
+            CatalogTypeId = request.CatalogTypeId,
+            CatalogBrandId = request.CatalogBrandId,
+            Description = request.Description,
+            Price = request.Price,
+            AvailableStock = 1,
+            RestockThreshold = 0,
+            MaxStockThreshold = 1,
+            SellerId = sellerId,
+            Condition = request.Condition,
+            ManufactureYear = request.ManufactureYear,
+            PhotoUrls = string.Join(",", request.PhotoUrls),
+        };
+        item.Embedding = await services.CatalogAI.GetEmbeddingAsync(item);
+
+        services.Context.CatalogItems.Add(item);
+        await services.Context.SaveChangesAsync();
+
+        return TypedResults.Created($"/api/catalog/items/{item.Id}");
+    }
+
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public static async Task<Ok<PaginatedItems<CatalogItem>>> GetItemsBySeller(
+        [AsParameters] PaginationRequest paginationRequest,
+        [AsParameters] CatalogServices services,
+        string sellerId)
+    {
+        var pageSize = paginationRequest.PageSize;
+        var pageIndex = paginationRequest.PageIndex;
+
+        var query = services.Context.CatalogItems
+            .Where(x => x.SellerId == sellerId && x.AvailableStock > 0);
+
+        var totalItems = await query.LongCountAsync();
+        var items = await query
+            .OrderBy(x => x.Name)
+            .Skip(pageSize * pageIndex)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return TypedResults.Ok(new PaginatedItems<CatalogItem>(pageIndex, pageSize, totalItems, items));
+    }
+
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public static async Task<Results<Ok<PaginatedItems<CatalogItem>>, UnauthorizedHttpResult>> GetMyListings(
+        [AsParameters] PaginationRequest paginationRequest,
+        [AsParameters] CatalogServices services,
+        ClaimsPrincipal user)
+    {
+        var sellerId = user.GetUserId();
+        if (string.IsNullOrEmpty(sellerId))
+            return TypedResults.Unauthorized();
+
+        var pageSize = paginationRequest.PageSize;
+        var pageIndex = paginationRequest.PageIndex;
+
+        var query = services.Context.CatalogItems
+            .Where(x => x.SellerId == sellerId);
+
+        var totalItems = await query.LongCountAsync();
+        var items = await query
+            .OrderByDescending(x => x.Id)
+            .Skip(pageSize * pageIndex)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return TypedResults.Ok(new PaginatedItems<CatalogItem>(pageIndex, pageSize, totalItems, items));
+    }
+
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public static async Task<Results<NoContent, NotFound, ForbidHttpResult, UnauthorizedHttpResult>> DeactivateListing(
+        [AsParameters] CatalogServices services,
+        ClaimsPrincipal user,
+        int id)
+    {
+        var sellerId = user.GetUserId();
+        if (string.IsNullOrEmpty(sellerId))
+            return TypedResults.Unauthorized();
+
+        var item = await services.Context.CatalogItems.FindAsync(id);
+        if (item is null)
+            return TypedResults.NotFound();
+
+        if (item.SellerId != sellerId)
+            return TypedResults.Forbid();
+
+        item.AvailableStock = 0;
+        await services.Context.SaveChangesAsync();
+        return TypedResults.NoContent();
+    }
 }
 
 public sealed record RateCatalogItemRequest(int Stars);

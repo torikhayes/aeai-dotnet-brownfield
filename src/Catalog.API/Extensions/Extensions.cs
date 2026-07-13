@@ -1,11 +1,17 @@
-﻿using eShop.Catalog.API.Infrastructure;
+using eShop.Catalog.API.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using eShop.Catalog.API.Services;
+using eShop.ServiceDefaults;
 
 public static class Extensions
 {
     public static void AddApplicationServices(this IHostApplicationBuilder builder)
     {
+        // Register IAuthenticationSchemeProvider unconditionally so UseAuthentication()
+        // middleware never throws; AddDefaultAuthentication then adds JWT when Identity is configured.
+        builder.Services.AddAuthentication();
+        builder.AddDefaultAuthentication();
+        builder.Services.AddAuthorization();
         // Avoid loading full database config and migrations if startup
         // is being invoked from build-time OpenAPI generation
         if (builder.Environment.IsBuild())

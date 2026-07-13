@@ -8,6 +8,7 @@ global using eShop.Catalog.API.IntegrationEvents;
 global using eShop.Catalog.API.IntegrationEvents.EventHandling;
 global using eShop.Catalog.API.IntegrationEvents.Events;
 global using eShop.Catalog.API.Model;
+global using System.Security.Claims;
 global using eShop.EventBus.Abstractions;
 global using eShop.EventBus.Events;
 global using eShop.IntegrationEventLogEF;
