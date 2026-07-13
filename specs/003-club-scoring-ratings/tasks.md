@@ -17,9 +17,9 @@
 
 **Purpose**: Prepare the catalog domain model surface for scoring, favorites, and tags.
 
-- [ ] T001 [P] Extend `src/Catalog.API/Model/CatalogItem.cs` with `ViewCount`, `FavoriteCount`, `AverageRating`, `RatingCount`, `Tags`, and tag-normalization helpers.
-- [ ] T002 [P] Add `src/Catalog.API/Model/CatalogItemRating.cs` and `src/Catalog.API/Model/CatalogItemFavorite.cs` with the fields defined in `specs/003-club-scoring-ratings/data-model.md`.
-- [ ] T003 Add EF Core entity configuration files in `src/Catalog.API/Infrastructure/EntityConfigurations/CatalogItemRatingEntityTypeConfiguration.cs` and `src/Catalog.API/Infrastructure/EntityConfigurations/CatalogItemFavoriteEntityTypeConfiguration.cs`.
+- [X] T001 [P] Extend `src/Catalog.API/Model/CatalogItem.cs` with `ViewCount`, `FavoriteCount`, `AverageRating`, `RatingCount`, `Tags`, and tag-normalization helpers.
+- [X] T002 [P] Add `src/Catalog.API/Model/CatalogItemRating.cs` and `src/Catalog.API/Model/CatalogItemFavorite.cs` with the fields defined in `specs/003-club-scoring-ratings/data-model.md`.
+- [X] T003 Add EF Core entity configuration files in `src/Catalog.API/Infrastructure/EntityConfigurations/CatalogItemRatingEntityTypeConfiguration.cs` and `src/Catalog.API/Infrastructure/EntityConfigurations/CatalogItemFavoriteEntityTypeConfiguration.cs`.
 
 ---
 
@@ -29,10 +29,10 @@
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T004 Update `src/Catalog.API/Infrastructure/CatalogContext.cs` to register `DbSet<CatalogItemRating>` and `DbSet<CatalogItemFavorite>` and apply the new entity configurations.
-- [ ] T005 Create the EF Core migration and snapshot update under `src/Catalog.API/Infrastructure/Migrations/` for the new `CatalogItem` columns plus `CatalogItemRating` and `CatalogItemFavorite` tables.
-- [ ] T006 [P] Add authorization wiring to `src/Catalog.API/Program.cs` and `src/Catalog.API/Extensions/Extensions.cs` so rating, favorite, and tag endpoints can require authenticated users.
-- [ ] T007 [P] Add authenticated test support in `tests/Catalog.FunctionalTests/CatalogApiFixture.cs` and `tests/Catalog.FunctionalTests/TestAuthHandler.cs` so functional tests can exercise protected endpoints.
+- [X] T004 Update `src/Catalog.API/Infrastructure/CatalogContext.cs` to register `DbSet<CatalogItemRating>` and `DbSet<CatalogItemFavorite>` and apply the new entity configurations.
+- [X] T005 Create the EF Core migration and snapshot update under `src/Catalog.API/Infrastructure/Migrations/` for the new `CatalogItem` columns plus `CatalogItemRating` and `CatalogItemFavorite` tables.
+- [X] T006 [P] Add authorization wiring to `src/Catalog.API/Program.cs` and `src/Catalog.API/Extensions/Extensions.cs` so rating, favorite, and tag endpoints can require authenticated users.
+- [X] T007 [P] Add authenticated test support in `tests/Catalog.FunctionalTests/CatalogApiFixture.cs` and `tests/Catalog.FunctionalTests/TestAuthHandler.cs` so functional tests can exercise protected endpoints.
 
 **Checkpoint**: Catalog persistence, migrations, and auth/test plumbing are ready for story work.
 
@@ -46,13 +46,13 @@
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Add functional coverage for authenticated rating submission and invalid star values in `tests/Catalog.FunctionalTests/CatalogApiRatingTests.cs`.
-- [ ] T009 [P] [US1] Add functional coverage for rating upsert behavior when the same user rates the same item again in `tests/Catalog.FunctionalTests/CatalogApiRatingTests.cs`.
+- [X] T008 [P] [US1] Add functional coverage for authenticated rating submission and invalid star values in `tests/Catalog.FunctionalTests/CatalogApiRatingTests.cs`.
+- [X] T009 [P] [US1] Add functional coverage for rating upsert behavior when the same user rates the same item again in `tests/Catalog.FunctionalTests/CatalogApiRatingTests.cs`.
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Add rating aggregate helpers and authenticated user resolution in `src/Catalog.API/Apis/CatalogApi.cs`.
-- [ ] T011 [US1] Implement `POST /api/catalog/items/{id}/rate` in `src/Catalog.API/Apis/CatalogApi.cs` and persist `CatalogItemRating` rows with immediate `AverageRating` and `RatingCount` updates.
+- [X] T010 [US1] Add rating aggregate helpers and authenticated user resolution in `src/Catalog.API/Apis/CatalogApi.cs`.
+- [X] T011 [US1] Implement `POST /api/catalog/items/{id}/rate` in `src/Catalog.API/Apis/CatalogApi.cs` and persist `CatalogItemRating` rows with immediate `AverageRating` and `RatingCount` updates.
 
 **Checkpoint**: Story 1 is complete and independently testable.
 
@@ -66,13 +66,13 @@
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Add functional coverage for `ViewCount` increments in `tests/Catalog.FunctionalTests/CatalogApiEngagementTests.cs`.
-- [ ] T013 [P] [US2] Add functional coverage for favorite toggle behavior and `FavoriteCount` updates in `tests/Catalog.FunctionalTests/CatalogApiEngagementTests.cs`.
+- [X] T012 [P] [US2] Add functional coverage for `ViewCount` increments in `tests/Catalog.FunctionalTests/CatalogApiEngagementTests.cs`.
+- [X] T013 [P] [US2] Add functional coverage for favorite toggle behavior and `FavoriteCount` updates in `tests/Catalog.FunctionalTests/CatalogApiEngagementTests.cs`.
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Update `GET /api/catalog/items/{id}` in `src/Catalog.API/Apis/CatalogApi.cs` so a successful read increments `ViewCount` before returning the item.
-- [ ] T015 [US2] Implement `POST /api/catalog/items/{id}/favorite` in `src/Catalog.API/Apis/CatalogApi.cs` and persist or remove `CatalogItemFavorite` rows while maintaining `FavoriteCount`.
+- [X] T014 [US2] Update `GET /api/catalog/items/{id}` in `src/Catalog.API/Apis/CatalogApi.cs` so a successful read increments `ViewCount` before returning the item.
+- [X] T015 [US2] Implement `POST /api/catalog/items/{id}/favorite` in `src/Catalog.API/Apis/CatalogApi.cs` and persist or remove `CatalogItemFavorite` rows while maintaining `FavoriteCount`.
 
 **Checkpoint**: Story 2 is complete and independently testable.
 
@@ -86,12 +86,12 @@
 
 ### Tests for User Story 3
 
-- [ ] T016 [P] [US3] Add functional coverage for tag update persistence and tag-aware filtering in `tests/Catalog.FunctionalTests/CatalogApiTagTests.cs`.
+- [X] T016 [P] [US3] Add functional coverage for tag update persistence and tag-aware filtering in `tests/Catalog.FunctionalTests/CatalogApiTagTests.cs`.
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Normalize and carry `Tags` through catalog item create/update paths in `src/Catalog.API/Model/CatalogItem.cs` and `src/Catalog.API/Apis/CatalogApi.cs`.
-- [ ] T018 [US3] Implement `PATCH /api/catalog/items/{id}/tags` and tag-aware filtering on the catalog list endpoint in `src/Catalog.API/Apis/CatalogApi.cs`.
+- [X] T017 [US3] Normalize and carry `Tags` through catalog item create/update paths in `src/Catalog.API/Model/CatalogItem.cs` and `src/Catalog.API/Apis/CatalogApi.cs`.
+- [X] T018 [US3] Implement `PATCH /api/catalog/items/{id}/tags` and tag-aware filtering on the catalog list endpoint in `src/Catalog.API/Apis/CatalogApi.cs`.
 
 **Checkpoint**: Story 3 is complete and independently testable.
 
@@ -101,8 +101,8 @@
 
 **Purpose**: Final consistency checks across all stories.
 
-- [ ] T019 [P] Update `specs/003-club-scoring-ratings/quickstart.md` and `specs/003-club-scoring-ratings/contracts/catalog-api-club-scoring.md` if the implemented request or response shapes differ from the plan.
-- [ ] T020 Validate the finished feature with `dotnet build src/Catalog.API/Catalog.API.csproj` and `dotnet test tests/Catalog.FunctionalTests/Catalog.FunctionalTests.csproj`.
+- [X] T019 [P] Update `specs/003-club-scoring-ratings/quickstart.md` and `specs/003-club-scoring-ratings/contracts/catalog-api-club-scoring.md` if the implemented request or response shapes differ from the plan.
+- [X] T020 Validate the finished feature with `dotnet build src/Catalog.API/Catalog.API.csproj` and `dotnet test tests/Catalog.FunctionalTests/Catalog.FunctionalTests.csproj`.
 
 ---
 

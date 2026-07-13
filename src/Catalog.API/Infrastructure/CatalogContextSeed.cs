@@ -71,6 +71,10 @@ public partial class CatalogContextSeed(
             await context.CatalogItems.AddRangeAsync(catalogItems);
             logger.LogInformation("Seeded catalog with {NumItems} items", context.CatalogItems.Count());
             await context.SaveChangesAsync();
+
+            // Seed inserts explicit IDs, so reset the sequence used for generated IDs.
+            await context.Database.ExecuteSqlRawAsync(
+                "SELECT setval(pg_get_serial_sequence('\"Catalog\"', 'Id'), (SELECT COALESCE(MAX(\"Id\"), 1) FROM \"Catalog\"));");
         }
     }
 

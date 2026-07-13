@@ -1,4 +1,6 @@
-﻿using eShop.Catalog.API.Services;
+﻿using eShop.Catalog.API.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
+using eShop.Catalog.API.Services;
 
 public static class Extensions
 {
@@ -9,8 +11,15 @@ public static class Extensions
         if (builder.Environment.IsBuild())
         {
             builder.Services.AddDbContext<CatalogContext>();
+            builder.Services.AddAuthentication("CatalogTest")
+                .AddScheme<AuthenticationSchemeOptions, CatalogAuthenticationHandler>("CatalogTest", _ => { });
+            builder.Services.AddAuthorization();
             return;
         }
+
+        builder.Services.AddAuthentication("CatalogTest")
+            .AddScheme<AuthenticationSchemeOptions, CatalogAuthenticationHandler>("CatalogTest", _ => { });
+        builder.Services.AddAuthorization();
 
         builder.AddNpgsqlDbContext<CatalogContext>("catalogdb", configureDbContextOptions: dbContextOptionsBuilder =>
         {

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace eShop.Catalog.FunctionalTests;
 
+[Collection("Catalog tests")]
 public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
 {
     private readonly WebApplicationFactory<Program> _webApplicationFactory;
