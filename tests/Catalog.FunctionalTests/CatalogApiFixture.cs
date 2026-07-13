@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace eShop.Catalog.FunctionalTests;
 
-public sealed class CatalogApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
+public class CatalogApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly IHost _app;
 
