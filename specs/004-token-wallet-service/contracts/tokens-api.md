@@ -56,7 +56,8 @@ Returns a paginated, reverse-chronological list of token transactions for the au
       "reason": "Driver/Excellent listing verified",
       "lookupTableVersion": "1.0.0",
       "createdAt": "2026-07-13T14:22:00Z",
-      "relatedEventId": "evt-abc123"
+      "relatedEventId": "evt-abc123",
+      "catalogItemId": "catalog-item-uuid-abc"
     },
     {
       "id": "7cb1e3a2-...",
@@ -64,7 +65,8 @@ Returns a paginated, reverse-chronological list of token transactions for the au
       "reason": "purchase debit",
       "lookupTableVersion": null,
       "createdAt": "2026-07-13T16:05:00Z",
-      "relatedEventId": "order-xyz789"
+      "relatedEventId": "order-xyz789",
+      "catalogItemId": null
     }
   ]
 }
@@ -77,6 +79,8 @@ Returns a paginated, reverse-chronological list of token transactions for the au
 - `lookupTableVersion` is `null` on spend transactions.
 - `reason` on earn transactions uses format `"{Category}/{Condition} listing verified"`.
 - `reason` on spend transactions is `"purchase debit"`.
+- Returns HTTP 200 with `{ "totalCount": 0, "page": 1, "pageSize": 20, "items": [] }` when the user has no transactions — never HTTP 404.
+- When `page` exceeds the total page count, returns HTTP 200 with an empty `items` array.
 
 ---
 
@@ -101,9 +105,11 @@ Returns the current token reward amount for a given club category and condition 
 }
 ```
 
-**Response 400**: Missing or invalid `category` / `condition` parameter.
+**Response 400**: Missing, empty, or unrecognised `category` or `condition` value (not one of the defined enum values).
 
-**Response 404**: No lookup entry found for the given combination (should not occur with valid inputs and seeded table).
+**Response 404**: Both parameters are valid enum values, but no seeded lookup row exists for that combination. This should not occur for any of the 28 defined category × condition combinations.
+
+**Response 503**: Service temporarily unavailable — `tokendb` migrations have not yet completed (startup race). Callers should retry after a short backoff.
 
 **Example**: `GET /api/tokens/reward-preview?category=Driver&condition=Excellent` → `{ "tokenAmount": 80, "tableVersion": "1.0.0" }`
 
@@ -139,13 +145,15 @@ Atomically debits tokens from a user's wallet. Called service-to-service from Or
 }
 ```
 
-**Response 400** (insufficient balance):
+**Response 400** (insufficient balance or invalid input):
 ```json
 {
   "error": "insufficient_balance",
   "detail": "User has 30 tokens; requested debit of 80 would result in a negative balance."
 }
 ```
+
+> Also returned with `"error": "validation_error"` when `amount` is 0 or negative.
 
 **Response 409** (already debited for this orderId):
 ```json
@@ -155,7 +163,17 @@ Atomically debits tokens from a user's wallet. Called service-to-service from Or
 }
 ```
 
+**Response 503** (concurrency retries exhausted):
+```json
+{
+  "title": "Service Unavailable",
+  "detail": "Could not commit balance update after maximum retries. Try again shortly."
+}
+```
+
 **Notes**:
-- If `amount` would bring balance below 0, returns 400 — no partial debit.
-- If the same `orderId` has already been processed, returns 409 (idempotency — caller should treat as success if the amount matches).
-- Uses optimistic concurrency retry internally (max retries from `TokenOptions`).
+- If `amount` would bring balance below 0, returns 400 (insufficient balance) — no partial debit.
+- `amount` MUST be a positive integer (> 0); `amount = 0` returns 400 (validation_error).
+- If the same `orderId` has already been processed, returns 409 regardless of whether the `amount` matches the original request. Callers should treat 409 as a successful prior debit only if they can independently confirm the original amount.
+- Uses optimistic concurrency retry internally (max retries from `TokenOptions:MaxConcurrencyRetries`, default 3). When retries are exhausted, returns 503.
+- Ordering.API MUST forward the buyer's JWT Bearer token from the incoming order request when calling this endpoint. A machine-identity token is not used.

@@ -49,6 +49,7 @@ public class TokenTransaction
     public string Reason { get; set; } = default!;    // e.g. "Driver/Excellent listing verified", "purchase debit"
     public string RelatedEventId { get; set; } = default!; // EventId from integration event — idempotency key
     public string? LookupTableVersion { get; set; }   // populated on earn transactions only
+    public string? CatalogItemId { get; set; }        // populated on earn transactions only (from ClubListingVerifiedIntegrationEvent)
     public DateTime CreatedAt { get; set; }
 }
 ```
