@@ -1,23 +1,21 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 → 1.1.0 (MINOR: expanded Principle III with concrete token-issuance rules)
+Version change: 1.1.0 → 2.0.0 (MAJOR: updated the technology constraint from .NET 9 to
+  .NET 10 to match the current repo target)
 Modified principles:
-  - III. Attribute-Based, Anti-Fraud Valuation — added specifics on award timing (post
-    automated-verification, not instant, not human-review-gated), valuation mechanism
-    (category × condition lookup table, not brand/model pricing), and an explicit statement
-    that anti-farming caps are a deliberate non-constraint for now
-Added sections: none (this amendment extends an existing principle)
+  - Technology Constraints — updated the required solution/runtime baseline from .NET 9 to
+    .NET 10 while preserving the existing Aspire service topology
+Added sections: none
 Removed sections: none
 Templates requiring updates:
-  ✅ .specify/templates/plan-template.md — Constitution Check gate is derived from this file at
-     runtime; no hardcoded principle references to update
+  ✅ .specify/templates/plan-template.md — Constitution Check remains valid; no structural
+    template change required
   ✅ .specify/templates/spec-template.md — no constitution-specific references found
   ✅ .specify/templates/tasks-template.md — no constitution-specific references found
-  ⚠ README.md / docs — still describe eShop/AdventureWorks branding and Ordering's owned
-     fulfillment flow, which Principle VI excludes; recommend a doc pass alongside the first
-     respec feature spec/plan rather than as part of this amendment
-Follow-up TODOs: the category × condition lookup table itself (exact categories, grades, token
-  values) is intentionally left to the data model / feature spec, not the constitution.
+  ✅ README.md — updated .NET 9 setup references to .NET 10
+  ✅ docs/dev-workflow.md — updated SDK guidance to .NET 10
+  ✅ docs/architecture.md — updated runtime references to .NET 10
+Follow-up TODOs: none
 -->
 
 <!--
@@ -134,7 +132,7 @@ original Ordering delivery-tracking flow.
 
 ## Technology Constraints
 
-- The application MUST remain a .NET 9 / .NET Aspire solution, reusing the existing service
+- The application MUST remain a .NET 10 / .NET Aspire solution, reusing the existing service
   topology (Catalog.API, Basket.API, Ordering.API, Identity.API, PaymentProcessor,
   EventBus/EventBusRabbitMQ, WebApp) as the starting point for the golf marketplace re-theme.
 - Inter-service communication crossing a service boundary MUST continue to use the existing

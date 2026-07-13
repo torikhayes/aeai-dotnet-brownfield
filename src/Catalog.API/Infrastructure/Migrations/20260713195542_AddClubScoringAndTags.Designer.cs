@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using eShop.Catalog.API.Infrastructure;
 namespace eShop.Catalog.API.Infrastructure.Migrations
 {
     [DbContext(typeof(CatalogContext))]
-    partial class CatalogContextModelSnapshot : ModelSnapshot
+    [Migration("20260713195542_AddClubScoringAndTags")]
+    partial class AddClubScoringAndTags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,9 +65,6 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
                     b.Property<int>("CatalogTypeId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Condition")
-                        .HasColumnType("text");
-
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -72,9 +72,6 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
                         .HasColumnType("vector(384)");
 
                     b.Property<int>("FavoriteCount")
-                        .HasColumnType("integer");
-                        
-                    b.Property<int?>("ManufactureYear")
                         .HasColumnType("integer");
 
                     b.Property<int>("MaxStockThreshold")
@@ -87,9 +84,6 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
 
                     b.Property<bool>("OnReorder")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("PhotoUrls")
-                        .HasColumnType("text");
 
                     b.Property<string>("PictureFileName")
                         .HasColumnType("text");

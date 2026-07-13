@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Docker running (Postgres/Redis/RabbitMQ are all containers spun up by Aspire)
-- .NET 9 SDK (`global.json` pins the exact version)
+- .NET 10 SDK (`global.json` pins the exact version)
 
 ## Run everything
 

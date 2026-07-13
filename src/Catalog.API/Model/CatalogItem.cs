@@ -11,6 +11,8 @@ public class CatalogItem
     [Required]
     public string Name { get; set; }
 
+    public string? SellerId { get; set; }
+
     public string? Description { get; set; }
 
     public decimal Price { get; set; }
@@ -35,6 +37,16 @@ public class CatalogItem
     // Maximum number of units that can be in-stock at any time (due to physicial/logistical constraints in warehouses)
     public int MaxStockThreshold { get; set; }
 
+    public int ViewCount { get; set; }
+
+    public int FavoriteCount { get; set; }
+
+    public float AverageRating { get; set; }
+
+    public int RatingCount { get; set; }
+
+    public string? Tags { get; set; }
+
     /// <summary>Optional embedding for the catalog item's description.</summary>
     [JsonIgnore]
     public Vector? Embedding { get; set; }
@@ -56,6 +68,34 @@ public class CatalogItem
     public string? PhotoUrls { get; set; }
 
     public CatalogItem(string name) { Name = name; }
+
+    public static string NormalizeTag(string tag) => tag.Trim().ToLowerInvariant();
+
+    public static string? NormalizeTags(IEnumerable<string>? tags)
+    {
+        if (tags is null)
+        {
+            return null;
+        }
+
+        var normalizedTags = tags
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(NormalizeTag)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return normalizedTags.Length == 0 ? null : string.Join(',', normalizedTags);
+    }
+
+    public IReadOnlyCollection<string> GetTags()
+    {
+        if (string.IsNullOrWhiteSpace(Tags))
+        {
+            return Array.Empty<string>();
+        }
+
+        return Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
 
 
     /// <summary>

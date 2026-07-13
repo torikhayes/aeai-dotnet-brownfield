@@ -2,7 +2,7 @@
 
 ## What this is
 
-This repo is Microsoft's **dotnet/eShop** reference application — a services-based e-commerce sample ("AdventureWorks") built on **.NET 9/10** and orchestrated with **.NET Aspire**. It's designed as a canonical example of .NET microservice patterns (DDD, CQRS, event-driven integration, BFF), not a from-scratch app — so most future feature work here means *extending an existing service* or *adding a new one into the Aspire graph*, following the conventions already in place.
+This repo is Microsoft's **dotnet/eShop** reference application — a services-based e-commerce sample ("AdventureWorks") built on **.NET 10** and orchestrated with **.NET Aspire**. It's designed as a canonical example of .NET microservice patterns (DDD, CQRS, event-driven integration, BFF), not a from-scratch app — so most future feature work here means *extending an existing service* or *adding a new one into the Aspire graph*, following the conventions already in place.
 
 Repo-level architecture diagram: `img/eshop_architecture.png`.
 
@@ -45,7 +45,7 @@ If you add a new service, start from an existing `Program.cs` (e.g. `Webhooks.AP
 
 | Concern | Choice |
 |---|---|
-| Runtime | .NET 9 (moving toward .NET 10 per commit history) |
+| Runtime | .NET 10 |
 | Orchestration | .NET Aspire |
 | APIs | ASP.NET Core Minimal APIs + Asp.Versioning |
 | Web frontend | Blazor Server (WebApp) + shared Razor component library (WebAppComponents) |

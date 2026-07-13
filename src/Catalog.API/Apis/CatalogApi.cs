@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -39,6 +40,24 @@ public static class CatalogApi
             .WithName("ListItems-V2")
             .WithSummary("List catalog items")
             .WithDescription("Get a paginated list of items in the catalog.")
+            .WithTags("Items");
+        api.MapPost("/items/{id:int}/rate", RateItem)
+            .RequireAuthorization()
+            .WithName("RateItem")
+            .WithSummary("Rate a catalog item")
+            .WithDescription("Submit or update a star rating for a catalog item")
+            .WithTags("Items");
+        api.MapPost("/items/{id:int}/favorite", ToggleFavorite)
+            .RequireAuthorization()
+            .WithName("ToggleFavorite")
+            .WithSummary("Toggle a favorite for a catalog item")
+            .WithDescription("Toggle the authenticated user's favorite state for a catalog item")
+            .WithTags("Items");
+        api.MapPatch("/items/{id:int}/tags", UpdateTags)
+            .RequireAuthorization()
+            .WithName("UpdateTags")
+            .WithSummary("Update catalog item tags")
+            .WithDescription("Update the tags for a catalog item")
             .WithTags("Items");
         api.MapGet("/items/by", GetItemsByIds)
             .WithName("BatchGetItems")
@@ -154,7 +173,7 @@ public static class CatalogApi
         [AsParameters] PaginationRequest paginationRequest,
         [AsParameters] CatalogServices services)
     {
-        return await GetAllItems(paginationRequest, services, null, null, null);
+        return await GetAllItems(paginationRequest, services, null, null, null, null);
     }
 
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
@@ -163,7 +182,8 @@ public static class CatalogApi
         [AsParameters] CatalogServices services,
         [Description("The name of the item to return")] string? name,
         [Description("The type of items to return")] int? type,
-        [Description("The brand of items to return")] int? brand)
+        [Description("The brand of items to return")] int? brand,
+        [Description("The tag of items to return")] string? tag)
     {
         var pageSize = paginationRequest.PageSize;
         var pageIndex = paginationRequest.PageIndex;
@@ -181,6 +201,11 @@ public static class CatalogApi
         if (brand is not null)
         {
             root = root.Where(c => c.CatalogBrandId == brand);
+        }
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            var normalizedTag = CatalogItem.NormalizeTag(tag);
+            root = root.Where(c => c.Tags != null && EF.Functions.Like("," + c.Tags + ",", $"%,{normalizedTag},%"));
         }
 
         var totalItems = await root
@@ -224,7 +249,144 @@ public static class CatalogApi
             return TypedResults.NotFound();
         }
 
+        item.ViewCount++;
+        await services.Context.SaveChangesAsync();
+
         return TypedResults.Ok(item);
+    }
+
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public static async Task<Results<NoContent, BadRequest<ProblemDetails>, NotFound>> RateItem(
+        HttpContext httpContext,
+        [AsParameters] CatalogServices services,
+        [Description("The catalog item id")] int id,
+        RateCatalogItemRequest request)
+    {
+        var userId = GetCurrentUserId(httpContext);
+        if (userId is null)
+        {
+            return TypedResults.BadRequest<ProblemDetails>(new ProblemDetails { Detail = "Authenticated user is required." });
+        }
+
+        if (request.Stars is < 1 or > 5)
+        {
+            return TypedResults.BadRequest<ProblemDetails>(new ProblemDetails { Detail = "Stars must be between 1 and 5." });
+        }
+
+        var item = await services.Context.CatalogItems.SingleOrDefaultAsync(ci => ci.Id == id);
+        if (item is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var existingRating = await services.Context.CatalogItemRatings
+            .SingleOrDefaultAsync(rating => rating.CatalogItemId == id && rating.UserId == userId);
+
+        if (existingRating is null)
+        {
+            services.Context.CatalogItemRatings.Add(new CatalogItemRating
+            {
+                CatalogItemId = id,
+                UserId = userId,
+                Stars = request.Stars,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+        }
+        else
+        {
+            existingRating.Stars = request.Stars;
+        }
+
+        await services.Context.SaveChangesAsync();
+
+        var aggregate = await services.Context.CatalogItemRatings
+            .Where(rating => rating.CatalogItemId == id)
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Count = group.Count(),
+                Average = group.Average(rating => rating.Stars)
+            })
+            .SingleAsync();
+
+        item.RatingCount = aggregate.Count;
+        item.AverageRating = (float)Math.Round(aggregate.Average, 1, MidpointRounding.AwayFromZero);
+        await services.Context.SaveChangesAsync();
+
+        return TypedResults.NoContent();
+    }
+
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public static async Task<Results<NoContent, BadRequest<ProblemDetails>, NotFound>> ToggleFavorite(
+        HttpContext httpContext,
+        [AsParameters] CatalogServices services,
+        [Description("The catalog item id")] int id)
+    {
+        var userId = GetCurrentUserId(httpContext);
+        if (userId is null)
+        {
+            return TypedResults.BadRequest<ProblemDetails>(new ProblemDetails { Detail = "Authenticated user is required." });
+        }
+
+        var item = await services.Context.CatalogItems.SingleOrDefaultAsync(ci => ci.Id == id);
+        if (item is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var favorite = await services.Context.CatalogItemFavorites
+            .SingleOrDefaultAsync(entry => entry.CatalogItemId == id && entry.UserId == userId);
+
+        if (favorite is null)
+        {
+            services.Context.CatalogItemFavorites.Add(new CatalogItemFavorite
+            {
+                CatalogItemId = id,
+                UserId = userId,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+        }
+        else
+        {
+            services.Context.CatalogItemFavorites.Remove(favorite);
+        }
+
+        await services.Context.SaveChangesAsync();
+
+        item.FavoriteCount = await services.Context.CatalogItemFavorites.CountAsync(entry => entry.CatalogItemId == id);
+        await services.Context.SaveChangesAsync();
+
+        return TypedResults.NoContent();
+    }
+
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public static async Task<Results<NoContent, BadRequest<ProblemDetails>, NotFound, ForbidHttpResult>> UpdateTags(
+        HttpContext httpContext,
+        [AsParameters] CatalogServices services,
+        [Description("The catalog item id")] int id,
+        UpdateCatalogItemTagsRequest request)
+    {
+        var userId = GetCurrentUserId(httpContext);
+        if (userId is null)
+        {
+            return TypedResults.BadRequest<ProblemDetails>(new ProblemDetails { Detail = "Authenticated user is required." });
+        }
+
+        var item = await services.Context.CatalogItems.SingleOrDefaultAsync(ci => ci.Id == id);
+        if (item is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (!string.Equals(item.SellerId, userId, StringComparison.Ordinal))
+        {
+            return TypedResults.Forbid();
+        }
+
+        item.Tags = CatalogItem.NormalizeTags(request.Tags);
+        await services.Context.SaveChangesAsync();
+
+        return TypedResults.NoContent();
     }
 
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
@@ -233,7 +395,7 @@ public static class CatalogApi
         [AsParameters] CatalogServices services,
         [Description("The name of the item to return")] string name)
     {
-        return await GetAllItems(paginationRequest, services, name, null, null);
+        return await GetAllItems(paginationRequest, services, name, null, null, null);
     }
 
     [ProducesResponseType<byte[]>(StatusCodes.Status200OK, "application/octet-stream",
@@ -332,7 +494,7 @@ public static class CatalogApi
         [Description("The type of items to return")] int typeId,
         [Description("The brand of items to return")] int? brandId)
     {
-        return await GetAllItems(paginationRequest, services, null, typeId, brandId);
+        return await GetAllItems(paginationRequest, services, null, typeId, brandId, null);
     }
 
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
@@ -341,7 +503,7 @@ public static class CatalogApi
         [AsParameters] CatalogServices services,
         [Description("The brand of items to return")] int? brandId)
     {
-        return await GetAllItems(paginationRequest, services, null, null, brandId);
+        return await GetAllItems(paginationRequest, services, null, null, brandId, null);
     }
 
     public static async Task<Results<Created, BadRequest<ProblemDetails>, NotFound<ProblemDetails>>> UpdateItemV1(
@@ -373,9 +535,23 @@ public static class CatalogApi
             });
         }
 
+        var currentSellerId = catalogItem.SellerId;
+        var currentViewCount = catalogItem.ViewCount;
+        var currentFavoriteCount = catalogItem.FavoriteCount;
+        var currentAverageRating = catalogItem.AverageRating;
+        var currentRatingCount = catalogItem.RatingCount;
+        var currentTags = catalogItem.Tags;
+
         // Update current product
         var catalogEntry = services.Context.Entry(catalogItem);
         catalogEntry.CurrentValues.SetValues(productToUpdate);
+
+        catalogItem.SellerId = currentSellerId;
+        catalogItem.ViewCount = currentViewCount;
+        catalogItem.FavoriteCount = currentFavoriteCount;
+        catalogItem.AverageRating = currentAverageRating;
+        catalogItem.RatingCount = currentRatingCount;
+        catalogItem.Tags = currentTags;
 
         catalogItem.Embedding = await services.CatalogAI.GetEmbeddingAsync(catalogItem);
 
@@ -401,12 +577,14 @@ public static class CatalogApi
 
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     public static async Task<Created> CreateItem(
+        HttpContext httpContext,
         [AsParameters] CatalogServices services,
         CatalogItem product)
     {
         var item = new CatalogItem(product.Name)
         {
             Id = product.Id,
+            SellerId = GetCurrentUserId(httpContext) ?? product.SellerId,
             CatalogBrandId = product.CatalogBrandId,
             CatalogTypeId = product.CatalogTypeId,
             Description = product.Description,
@@ -414,7 +592,8 @@ public static class CatalogApi
             Price = product.Price,
             AvailableStock = product.AvailableStock,
             RestockThreshold = product.RestockThreshold,
-            MaxStockThreshold = product.MaxStockThreshold
+            MaxStockThreshold = product.MaxStockThreshold,
+            Tags = CatalogItem.NormalizeTags(product.GetTags())
         };
         item.Embedding = await services.CatalogAI.GetEmbeddingAsync(item);
 
@@ -457,6 +636,9 @@ public static class CatalogApi
     public static string GetFullPath(string contentRootPath, string pictureFileName) =>
         Path.Combine(contentRootPath, "Pics", pictureFileName);
 
+    private static string? GetCurrentUserId(HttpContext httpContext) =>
+        httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? httpContext.User.FindFirstValue("sub");
     // -------------------------------------------------------------------------
     // Spec 002: Seller listing endpoints
     // -------------------------------------------------------------------------
@@ -582,3 +764,7 @@ public static class CatalogApi
         return TypedResults.NoContent();
     }
 }
+
+public sealed record RateCatalogItemRequest(int Stars);
+
+public sealed record UpdateCatalogItemTagsRequest(string[]? Tags);
