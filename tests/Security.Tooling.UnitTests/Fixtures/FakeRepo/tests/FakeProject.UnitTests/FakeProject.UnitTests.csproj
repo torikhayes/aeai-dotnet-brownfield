@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Fake.Test.Only.Package" />
+  </ItemGroup>
+</Project>
