@@ -53,6 +53,9 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
                     b.Property<int>("AvailableStock")
                         .HasColumnType("integer");
 
+                    b.Property<float>("AverageRating")
+                        .HasColumnType("real");
+
                     b.Property<int>("CatalogBrandId")
                         .HasColumnType("integer");
 
@@ -68,6 +71,9 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
                     b.Property<Vector>("Embedding")
                         .HasColumnType("vector(384)");
 
+                    b.Property<int>("FavoriteCount")
+                        .HasColumnType("integer");
+                        
                     b.Property<int?>("ManufactureYear")
                         .HasColumnType("integer");
 
@@ -91,11 +97,22 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
 
+                    b.Property<int>("RatingCount")
+                        .HasColumnType("integer");
+
                     b.Property<int>("RestockThreshold")
                         .HasColumnType("integer");
 
                     b.Property<string>("SellerId")
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Tags")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -105,7 +122,66 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
 
                     b.HasIndex("Name");
 
+                    b.HasIndex("SellerId");
+
                     b.ToTable("Catalog", (string)null);
+                });
+
+            modelBuilder.Entity("eShop.Catalog.API.Model.CatalogItemFavorite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CatalogItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("CatalogItemFavorite", (string)null);
+                });
+
+            modelBuilder.Entity("eShop.Catalog.API.Model.CatalogItemRating", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CatalogItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Stars")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("CatalogItemRating", (string)null);
                 });
 
             modelBuilder.Entity("eShop.Catalog.API.Model.CatalogType", b =>
@@ -174,6 +250,28 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
                     b.Navigation("CatalogBrand");
 
                     b.Navigation("CatalogType");
+                });
+
+            modelBuilder.Entity("eShop.Catalog.API.Model.CatalogItemFavorite", b =>
+                {
+                    b.HasOne("eShop.Catalog.API.Model.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
+                });
+
+            modelBuilder.Entity("eShop.Catalog.API.Model.CatalogItemRating", b =>
+                {
+                    b.HasOne("eShop.Catalog.API.Model.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
                 });
 #pragma warning restore 612, 618
         }

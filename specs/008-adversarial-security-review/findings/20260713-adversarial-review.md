@@ -1,0 +1,10 @@
+# Security Review — Adversarial Review — 20260713
+
+- **adv-0001** [CRITICAL] Catalog.API DELETE /api/catalog/items/{id} has no authorization check — status: new
+  - DELETE /api/catalog/items/{id} succeeds (204) for an unauthenticated caller with no bearer token or API key. Confirmed in source: src/Catalog.API/Apis/CatalogApi.cs:107 maps DeleteItemById with no .RequireAuthorization() and no [Authorize] attribute anywhere in the file. Any anonymous caller can permanently delete any catalog listing. During this test, the real item at id=1 was deleted this way and its original data could not be recovered.
+  - Evidence/reproduction: curl -X DELETE 'http://localhost:5222/api/catalog/items/1?api-version=1.0' with no Authorization header -> HTTP 204 (deleted). Reproduce: any unauthenticated DELETE to /api/catalog/items/{id}?api-version=1.0 against a running Catalog.API instance.
+- **adv-0002** [CRITICAL] Catalog.API POST /api/catalog/items has no authorization check — status: new
+  - POST /api/catalog/items succeeds (201) for an unauthenticated caller, allowing anyone to inject arbitrary catalog listings (name, price, stock, brand/type). Confirmed in source: src/Catalog.API/Apis/CatalogApi.cs:103 maps CreateItem with no .RequireAuthorization(). Related: PUT /api/catalog/items (line 93) and PUT /api/catalog/items/{id} (line 98) follow the identical unauthenticated-mapping pattern in the same file and were not directly exercised in this run to avoid further live-data mutation, but should be verified — same missing-authorization pattern is present in source.
+  - Evidence/reproduction: curl -X POST 'http://localhost:5222/api/catalog/items?api-version=1.0' -d '{"name":"adversarial-test-item","price":0.01,"catalogTypeId":1,"catalogBrandId":1}' with no Authorization header -> HTTP 201 (created, took id=1 after the DELETE in the sibling finding freed it). Reproduce: any unauthenticated POST to /api/catalog/items?api-version=1.0 against a running Catalog.API instance.
+  - Relevance: reachable
+

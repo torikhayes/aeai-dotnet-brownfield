@@ -2,6 +2,8 @@
 
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Asp.Versioning;
+using Asp.Versioning.Http;
 
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -54,5 +56,22 @@ public class CatalogApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await _app.StartAsync();
         _postgresConnectionString = await Postgres.Resource.GetConnectionStringAsync();
+        if (!_postgresConnectionString.Contains("Ssl Mode", StringComparison.OrdinalIgnoreCase))
+        {
+            _postgresConnectionString += ";Ssl Mode=Disable;Trust Server Certificate=true";
+        }
+    }
+
+    public HttpClient CreateClient(ApiVersion apiVersion)
+    {
+        var handler = new ApiVersionHandler(new QueryStringApiVersionWriter(), apiVersion);
+        return CreateDefaultClient(handler);
+    }
+
+    public HttpClient CreateAuthenticatedClient(ApiVersion apiVersion, string userId)
+    {
+        var client = CreateClient(apiVersion);
+        client.DefaultRequestHeaders.Add(TestAuthHandler.HeaderName, userId);
+        return client;
     }
 }

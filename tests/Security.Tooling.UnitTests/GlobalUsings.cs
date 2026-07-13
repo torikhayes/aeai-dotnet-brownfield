@@ -1,0 +1,13 @@
+global using System;
+global using System.Collections.Generic;
+global using System.Diagnostics;
+global using System.IO;
+global using System.Linq;
+global using System.Net;
+global using System.Text.Json;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using Microsoft.VisualStudio.TestTools.UnitTesting;
+global using eShop.Security.Tooling.UnitTests;
+
+[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.MethodLevel)]

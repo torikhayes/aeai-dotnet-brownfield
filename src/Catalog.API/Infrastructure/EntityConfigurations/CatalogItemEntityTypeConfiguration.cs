@@ -10,6 +10,12 @@ class CatalogItemEntityTypeConfiguration
         builder.Property(ci => ci.Name)
             .HasMaxLength(50);
 
+        builder.Property(ci => ci.SellerId)
+            .HasMaxLength(100);
+
+        builder.Property(ci => ci.Tags)
+            .HasMaxLength(500);
+
         builder.Property(ci => ci.Embedding)
             .HasColumnType("vector(384)");
 
@@ -20,5 +26,6 @@ class CatalogItemEntityTypeConfiguration
             .WithMany();
 
         builder.HasIndex(ci => ci.Name);
+        builder.HasIndex(ci => ci.SellerId);
     }
 }
