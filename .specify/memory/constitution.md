@@ -134,7 +134,7 @@ original Ordering delivery-tracking flow.
 
 ## Technology Constraints
 
-- The application MUST remain a .NET 9 / .NET Aspire solution, reusing the existing service
+- The application MUST remain a .NET 10 / .NET Aspire solution, reusing the existing service
   topology (Catalog.API, Basket.API, Ordering.API, Identity.API, PaymentProcessor,
   EventBus/EventBusRabbitMQ, WebApp) as the starting point for the golf marketplace re-theme.
 - Inter-service communication crossing a service boundary MUST continue to use the existing
@@ -155,4 +155,4 @@ original Ordering delivery-tracking flow.
   II, III, and V in its description; reviewers MUST block merge if evidence of idempotency/audit
   test coverage is missing.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-13 | **Last Amended**: 2026-07-13
+**Version**: 1.1.1 | **Ratified**: 2026-07-13 | **Last Amended**: 2026-07-13
