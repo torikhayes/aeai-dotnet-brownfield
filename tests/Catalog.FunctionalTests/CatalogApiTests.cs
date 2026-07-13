@@ -38,8 +38,8 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var result = JsonSerializer.Deserialize<PaginatedItems<CatalogItem>>(body, _jsonSerializerOptions);
 
-        // Assert 103 total items (101 seeded + 2 added by AddCatalogItem tests) with 5 retrieved from index 0
-        Assert.Equal(103, result.Count);
+        // Assert initial seeded catalog count with 5 retrieved from index 0
+        Assert.Equal(101, result.Count);
         Assert.Equal(0, result.PageIndex);
         Assert.Equal(5, result.PageSize);
     }
@@ -165,8 +165,8 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         // Act
         var response = version switch
         {
-            1.0 => await _httpClient.GetAsync("api/catalog/items/by/Wanderer%20Black%20Hiking%20Boots?PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
-            2.0 => await _httpClient.GetAsync("api/catalog/items?name=Wanderer%20Black%20Hiking%20Boots&PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
+            1.0 => await _httpClient.GetAsync("api/catalog/items/by/Driver%20Callaway%20Club%20001?PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
+            2.0 => await _httpClient.GetAsync("api/catalog/items?name=Driver%20Callaway%20Club%20001&PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(version), version, null)
         };
 
@@ -180,7 +180,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         Assert.Equal(1, result.Count);
         Assert.Equal(0, result.PageIndex);
         Assert.Equal(5, result.PageSize);
-        Assert.Equal("Wanderer Black Hiking Boots", result.Data.ToList().FirstOrDefault().Name);
+        Assert.Equal("Driver Callaway Club 001", result.Data.ToList().FirstOrDefault().Name);
     }
 
     [Theory]
@@ -193,8 +193,8 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         // Act
         var response = version switch
         {
-            1.0 => await _httpClient.GetAsync("api/catalog/items/by/Alpine?PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
-            2.0 => await _httpClient.GetAsync("api/catalog/items?name=Alpine&PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
+            1.0 => await _httpClient.GetAsync("api/catalog/items/by/Driver?PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
+            2.0 => await _httpClient.GetAsync("api/catalog/items?name=Driver&PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(version), version, null)
         };
 
@@ -205,10 +205,10 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
 
         // Assert
         Assert.NotNull(result.Data);
-        Assert.Equal(4, result.Count);
+        Assert.Equal(17, result.Count);
         Assert.Equal(0, result.PageIndex);
         Assert.Equal(5, result.PageSize);
-        Assert.Contains("Alpine", result.Data.ToList().FirstOrDefault().Name);
+        Assert.StartsWith("Driver", result.Data.ToList().FirstOrDefault().Name);
     }
 
     [Theory]
@@ -226,7 +226,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         var result = response.Content.Headers.ContentType.MediaType;
 
         // Assert
-        Assert.Equal("image/webp", result);
+        Assert.Equal("image/svg+xml", result);
     }
 
     [Theory]
@@ -239,8 +239,8 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         // Act
         var response = version switch
         {
-            1.0 => await _httpClient.GetAsync("api/catalog/items/withsemanticrelevance/Wanderer?PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
-            2.0 => await _httpClient.GetAsync("api/catalog/items/withsemanticrelevance?text=Wanderer&PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
+            1.0 => await _httpClient.GetAsync("api/catalog/items/withsemanticrelevance/Driver%20Callaway%20Club%20001?PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
+            2.0 => await _httpClient.GetAsync("api/catalog/items/withsemanticrelevance?text=Driver%20Callaway%20Club%20001&PageSize=5&PageIndex=0", TestContext.Current.CancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(version), version, null)
         };
 
@@ -307,7 +307,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
 
         // Assert
         Assert.NotNull(result.Data);
-        Assert.Equal(11, result.Count);
+        Assert.Equal(20, result.Count);
         Assert.Equal(0, result.PageIndex);
         Assert.Equal(5, result.PageSize);
         Assert.Equal(3, result.Data.ToList().FirstOrDefault().CatalogBrandId);
@@ -329,7 +329,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         var result = JsonSerializer.Deserialize<List<CatalogType>>(body, _jsonSerializerOptions);
 
         // Assert
-        Assert.Equal(8, result.Count);
+        Assert.Equal(6, result.Count);
         Assert.NotNull(result);
     }
 
@@ -349,7 +349,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         var result = JsonSerializer.Deserialize<List<CatalogBrand>>(body, _jsonSerializerOptions);
 
         // Assert
-        Assert.Equal(13, result.Count);
+        Assert.Equal(5, result.Count);
         Assert.NotNull(result);
     }
 
@@ -372,9 +372,9 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
             Description = "Test catalog description 1",
             Price = 11000.08m,
             PictureFileName = null,
-            CatalogTypeId = 8,
+            CatalogTypeId = 6,
             CatalogType = null,
-            CatalogBrandId = 13,
+            CatalogBrandId = 5,
             CatalogBrand = null,
             AvailableStock = 100,
             RestockThreshold = 10,
