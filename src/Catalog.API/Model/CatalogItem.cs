@@ -44,6 +44,17 @@ public class CatalogItem
     /// </summary>
     public bool OnReorder { get; set; }
 
+    // Seller listing fields (null for admin/platform-seeded items)
+    public string? SellerId { get; set; }
+
+    /// <summary>Condition grade: New, Excellent, Good, or Fair.</summary>
+    public string? Condition { get; set; }
+
+    public int? ManufactureYear { get; set; }
+
+    /// <summary>Comma-separated list of photo URLs. At least one required for seller listings.</summary>
+    public string? PhotoUrls { get; set; }
+
     public CatalogItem(string name) { Name = name; }
 
 
