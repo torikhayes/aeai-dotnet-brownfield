@@ -7,10 +7,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_DIR="$(CDPATH="" cd "$SCRIPT_DIR/../python" && pwd)"
 
 if ! command -v python3 >/dev/null 2>&1; then
     echo "ERROR: python3 is required by security-report-render.sh but was not found on PATH." >&2
     exit 1
 fi
 
-exec python3 "$SCRIPT_DIR/security_report_render.py" "$@"
+exec python3 "$PYTHON_DIR/security_report_render.py" "$@"
