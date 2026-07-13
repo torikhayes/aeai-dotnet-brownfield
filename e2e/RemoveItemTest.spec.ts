@@ -4,8 +4,8 @@ test('Remove item from cart', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Ready for a new adventure?' })).toBeVisible();
   
-  await page.getByRole('link', { name: 'Adventurer GPS Watch' }).click();
-  await expect(page.getByRole('heading', { name: 'Adventurer GPS Watch' })).toBeVisible();
+  await page.getByRole('link', { name: 'Driver Callaway Club 001' }).click();
+  await expect(page.getByRole('heading', { name: 'Driver Callaway Club 001' })).toBeVisible();
   
   await page.getByRole('button', { name: 'Add to shopping bag' }).click();
   await page.getByRole('link', { name: 'shopping bag' }).click();

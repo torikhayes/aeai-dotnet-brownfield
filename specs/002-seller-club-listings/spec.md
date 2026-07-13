@@ -77,7 +77,7 @@ A seller can delist a club (mark it unavailable) before it sells.
 
 ### Functional Requirements
 
-- **FR-001**: `CatalogItem` MUST be extended with `SellerId` (string, nullable for legacy/admin-created items), `Condition` (enum: New, LikeNew, Good, Fair), and `ManufactureYear` (int, nullable).
+- **FR-001**: `CatalogItem` MUST be extended with `SellerId` (string, nullable for legacy/admin-created items), `Condition` (enum: New, Excellent, Good, Fair — the canonical condition grades defined in the project constitution, Principle III), and `ManufactureYear` (int, nullable).
 - **FR-002**: An EF Core migration MUST be created for the new `CatalogItem` columns.
 - **FR-003**: A new authenticated endpoint `POST /api/catalog/items` MUST allow any logged-in user to create a listing; `SellerId` is set server-side from the authenticated user's identity claim.
 - **FR-004**: A new endpoint `GET /api/catalog/items/by-seller/{sellerId}` MUST return paginated listings for a given seller (public, no auth required).
@@ -88,8 +88,13 @@ A seller can delist a club (mark it unavailable) before it sells.
 
 ### Key Entities
 
-- **CatalogItem** (extended): Adds `SellerId` (string), `Condition` (string/enum), `ManufactureYear` (int?). All existing fields unchanged.
+- **CatalogItem** (extended): Adds `SellerId` (string), `Condition` (string/enum: New/Excellent/Good/Fair), `ManufactureYear` (int?). All existing fields unchanged.
 - **Seller identity**: Represented by the user's subject claim from Identity.API JWT — no new entity required.
+
+**Note**: `Condition` grades captured here are used downstream by the token valuation lookup table
+(spec 004) and are subject to the photo-evidence and automated-verification requirements defined
+in spec 007 (Trust & Safety). This spec covers listing CRUD only — it does not itself gate listing
+creation on photo evidence or trigger token awards.
 
 ## Success Criteria *(mandatory)*
 

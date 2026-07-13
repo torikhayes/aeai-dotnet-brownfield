@@ -1,7 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan at
-specs/004-token-wallet-service/plan.md
+shell commands, and other important information, read specs/001-catalog-domain-rebrand/plan.md
 <!-- SPECKIT END -->
 
 ## Skills
