@@ -2,7 +2,7 @@
 name: "speckit-runtests"
 description: "Run the shell-scripted integration tests for the currently active feature spec. Executes tc-*.sh scripts via run-all.sh and reports results. Run after /speckit-scripttest."
 argument-hint: "Optional TC filter or flags — e.g. 'tc-010 tc-011' to run specific cases, or leave blank to run all"
-compatibility: "Requires spec-kit project structure with .specify/ directory and scripts/run-all.sh (run /speckit-scripttest first)"
+compatibility: "Requires spec-kit project structure with .specify/ directory and spec-integration-tests/run-all.sh (run /speckit-scripttest first)"
 metadata:
   author: "aeai-project"
 user-invocable: true
@@ -11,7 +11,7 @@ disable-model-invocation: false
 
 ## Purpose
 
-`speckit-runtests` runs the Bash test scripts for a single feature spec. It finds the active feature's `scripts/` directory, ensures prerequisites are met, executes `run-all.sh` (or a filtered subset of `tc-*.sh` scripts), and presents a clean pass/fail summary.
+`speckit-runtests` runs the Bash test scripts for a single feature spec. It finds the active feature's `spec-integration-tests/` directory, ensures prerequisites are met, executes `run-all.sh` (or a filtered subset of `tc-*.sh` scripts), and presents a clean pass/fail summary.
 
 ---
 
@@ -34,7 +34,7 @@ $ARGUMENTS
 
 Run `.specify/scripts/bash/check-prerequisites.sh --json` from repo root and parse `FEATURE_DIR`.
 
-Set `SCRIPTS_DIR="$FEATURE_DIR/scripts"`.
+Set `SCRIPTS_DIR="$FEATURE_DIR/spec-integration-tests"`.
 
 If `SCRIPTS_DIR` does not exist or contains no `tc-*.sh` files:
 - Stop and tell the user: "No test scripts found at `{SCRIPTS_DIR}`. Run `/speckit-scripttest` to generate them."
