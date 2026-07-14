@@ -23,6 +23,9 @@ if (!app.Environment.IsDevelopment())
 
 app.UseAntiforgery();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
