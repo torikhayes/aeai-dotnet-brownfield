@@ -64,7 +64,6 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
-specs/*/spec-integration-tests/
 
 # Tye
 .tye/
