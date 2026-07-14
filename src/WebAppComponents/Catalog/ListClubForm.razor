@@ -6,9 +6,8 @@
 }
 else
 {
-    <EditForm Model="@model" OnValidSubmit="HandleSubmitAsync" class="list-club-form">
+    <EditForm Model="@model" OnValidSubmit="HandleSubmitAsync" FormName="sell-my-club-form" class="list-club-form">
         <DataAnnotationsValidator />
-        <ValidationSummary />
 
         @if (!string.IsNullOrWhiteSpace(submitError))
         {
@@ -36,7 +35,7 @@ else
             <div class="form-field">
                 <label for="club-type">Type</label>
                 <InputSelect id="club-type" @bind-Value="model.CatalogTypeId">
-                    <option value="0">Select type</option>
+                    <option value="">Select type</option>
                     @foreach (var itemType in catalogItemTypes)
                     {
                         <option value="@itemType.Id">@itemType.Type</option>
@@ -48,7 +47,7 @@ else
             <div class="form-field">
                 <label for="club-brand">Brand</label>
                 <InputSelect id="club-brand" @bind-Value="model.CatalogBrandId">
-                    <option value="0">Select brand</option>
+                    <option value="">Select brand</option>
                     @foreach (var brand in catalogBrands)
                     {
                         <option value="@brand.Id">@brand.Brand</option>
@@ -132,9 +131,15 @@ else
             return;
         }
 
-        if (model.CatalogTypeId <= 0 || model.CatalogBrandId <= 0)
+        if (!model.CatalogTypeId.HasValue || !model.CatalogBrandId.HasValue)
         {
             submitError = "Please select both a type and brand.";
+            return;
+        }
+
+        if (!model.Price.HasValue)
+        {
+            submitError = "Please provide a price.";
             return;
         }
 

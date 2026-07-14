@@ -4,17 +4,18 @@ namespace eShop.WebAppComponents.Catalog;
 
 public class CreateSellerListingRequest
 {
-    [Required]
+    [Required(ErrorMessage = "Club name is required.")]
     public string Name { get; set; } = string.Empty;
 
-    [Range(typeof(decimal), "0.01", "1000000")]
-    public decimal Price { get; set; }
+    [Required(ErrorMessage = "Price is required.")]
+    [Range(typeof(decimal), "0.01", "1000000", ErrorMessage = "Price must be between 0.01 and 1,000,000.")]
+    public decimal? Price { get; set; }
 
-    [Range(1, int.MaxValue)]
-    public int CatalogTypeId { get; set; }
+    [Required(ErrorMessage = "Please select a club type.")]
+    public int? CatalogTypeId { get; set; }
 
-    [Range(1, int.MaxValue)]
-    public int CatalogBrandId { get; set; }
+    [Required(ErrorMessage = "Please select a club brand.")]
+    public int? CatalogBrandId { get; set; }
 
     [Required]
     public string Condition { get; set; } = "Good";
