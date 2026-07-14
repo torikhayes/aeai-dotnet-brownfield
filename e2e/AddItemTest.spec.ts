@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('Add item to the cart', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'Ready for a new adventure?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tee Up. Sell. Score.' })).toBeVisible();
   await page.getByRole('link', { name: 'Driver Callaway Club 001' }).click();
   await page.getByRole('button', { name: 'Add to shopping bag' }).click();
   await page.getByRole('link', { name: 'shopping bag' }).click();
