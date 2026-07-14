@@ -1,9 +1,16 @@
-﻿var builder = WebApplication.CreateBuilder(args);
+﻿using eShop.PaymentProcessor.TokenLedger.Apis;
+
+var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+builder.AddTokenLedger();
+
+builder.AddDefaultAuthentication();
+
 builder.AddRabbitMqEventBus("EventBus")
-    .AddSubscription<OrderStatusChangedToStockConfirmedIntegrationEvent, OrderStatusChangedToStockConfirmedIntegrationEventHandler>();
+    .AddSubscription<OrderStatusChangedToStockConfirmedIntegrationEvent, OrderStatusChangedToStockConfirmedIntegrationEventHandler>()
+    .AddSubscription<ClubListingVerifiedIntegrationEvent, ClubListingVerifiedIntegrationEventHandler>();
 
 builder.Services.AddOptions<PaymentOptions>()
     .BindConfiguration(nameof(PaymentOptions));
@@ -11,5 +18,6 @@ builder.Services.AddOptions<PaymentOptions>()
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+app.MapTokensApi();
 
 await app.RunAsync();

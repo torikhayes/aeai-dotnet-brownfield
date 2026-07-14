@@ -153,4 +153,4 @@ original Ordering delivery-tracking flow.
   II, III, and V in its description; reviewers MUST block merge if evidence of idempotency/audit
   test coverage is missing.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-13 | **Last Amended**: 2026-07-13
+**Version**: 1.1.1 | **Ratified**: 2026-07-13 | **Last Amended**: 2026-07-13

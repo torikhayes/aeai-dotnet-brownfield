@@ -30,4 +30,6 @@
     private Type? PageComponentType => HttpContext?.GetEndpoint()?.Metadata.OfType<ComponentTypeMetadata>().FirstOrDefault()?.Type;
     private bool IsCatalog => PageComponentType == typeof(Pages.Catalog.Catalog);
     private bool IsItemPage => PageComponentType == typeof(Pages.Item.ItemPage);
+    private bool UseLoginBanner =>
+        PageComponentType?.Namespace == typeof(Pages.User.Orders).Namespace;
 }
