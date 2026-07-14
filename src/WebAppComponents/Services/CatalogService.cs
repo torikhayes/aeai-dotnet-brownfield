@@ -35,6 +35,30 @@ public class CatalogService(HttpClient httpClient) : ICatalogService
         return result!;
     }
 
+    public async Task<CatalogResult> GetMyListings(int pageIndex, int pageSize)
+    {
+        var uri = $"{remoteServiceBaseUrl}items/my-listings?pageIndex={pageIndex}&pageSize={pageSize}";
+        var result = await httpClient.GetFromJsonAsync<CatalogResult>(uri);
+        return result!;
+    }
+
+    public async Task CreateSellerListing(CreateSellerListingRequest request)
+    {
+        var response = await httpClient.PostAsJsonAsync($"{remoteServiceBaseUrl}items/listings", request);
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var message = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            response.EnsureSuccessStatusCode();
+        }
+
+        throw new InvalidOperationException(message.Trim('"'));
+    }
+
     public async Task<IEnumerable<CatalogBrand>> GetBrands()
     {
         var uri = $"{remoteServiceBaseUrl}catalogBrands";

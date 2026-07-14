@@ -1,0 +1,187 @@
+@inject CatalogService CatalogService
+
+@if (isLoadingOptions)
+{
+    <p>Loading form options...</p>
+}
+else
+{
+    <EditForm Model="@model" OnValidSubmit="HandleSubmitAsync" class="list-club-form">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        @if (!string.IsNullOrWhiteSpace(submitError))
+        {
+            <p class="submit-error">@submitError</p>
+        }
+
+        <div class="form-grid">
+            <div class="form-field">
+                <label for="club-name">Club name</label>
+                <InputText id="club-name" @bind-Value="model.Name" />
+                <ValidationMessage For="@(() => model.Name)" />
+            </div>
+
+            <div class="form-field">
+                <label for="club-condition">Condition</label>
+                <InputSelect id="club-condition" @bind-Value="model.Condition">
+                    @foreach (var condition in validConditions)
+                    {
+                        <option value="@condition">@condition</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => model.Condition)" />
+            </div>
+
+            <div class="form-field">
+                <label for="club-type">Type</label>
+                <InputSelect id="club-type" @bind-Value="model.CatalogTypeId">
+                    <option value="0">Select type</option>
+                    @foreach (var itemType in catalogItemTypes)
+                    {
+                        <option value="@itemType.Id">@itemType.Type</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => model.CatalogTypeId)" />
+            </div>
+
+            <div class="form-field">
+                <label for="club-brand">Brand</label>
+                <InputSelect id="club-brand" @bind-Value="model.CatalogBrandId">
+                    <option value="0">Select brand</option>
+                    @foreach (var brand in catalogBrands)
+                    {
+                        <option value="@brand.Id">@brand.Brand</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => model.CatalogBrandId)" />
+            </div>
+
+            <div class="form-field">
+                <label for="club-year">Manufacture year</label>
+                <InputNumber id="club-year" @bind-Value="model.ManufactureYear" />
+                <ValidationMessage For="@(() => model.ManufactureYear)" />
+            </div>
+
+            <div class="form-field">
+                <label for="club-price">Price (USD)</label>
+                <InputNumber id="club-price" @bind-Value="model.Price" step="0.01" />
+                <ValidationMessage For="@(() => model.Price)" />
+            </div>
+        </div>
+
+        <div class="form-field">
+            <label for="club-description">Description</label>
+            <InputTextArea id="club-description" @bind-Value="model.Description" maxlength="2000" />
+            <ValidationMessage For="@(() => model.Description)" />
+        </div>
+
+        <div class="form-field">
+            <label for="club-tags">Tags (comma-separated)</label>
+            <InputText id="club-tags" @bind-Value="tagsInput" />
+        </div>
+
+        <div class="form-field">
+            <label for="club-photos">Photo URLs (one per line)</label>
+            <InputTextArea id="club-photos" @bind-Value="photoUrlsInput" />
+            <p class="help-text">At least one photo URL is required.</p>
+        </div>
+
+        <button class="button button-primary" type="submit" disabled="@isSubmitting">
+            @(isSubmitting ? "Submitting..." : "List my club")
+        </button>
+    </EditForm>
+}
+
+@code {
+    private static readonly string[] validConditions = ["New", "Excellent", "Good", "Fair"];
+
+    private readonly CreateSellerListingRequest model = new();
+    private IEnumerable<CatalogBrand> catalogBrands = [];
+    private IEnumerable<CatalogItemType> catalogItemTypes = [];
+    private string photoUrlsInput = string.Empty;
+    private string tagsInput = string.Empty;
+    private string? submitError;
+    private bool isSubmitting;
+    private bool isLoadingOptions = true;
+
+    [Parameter]
+    public EventCallback OnListingCreated { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var brandsTask = CatalogService.GetBrands();
+        var itemTypesTask = CatalogService.GetTypes();
+        await Task.WhenAll(brandsTask, itemTypesTask);
+
+        catalogBrands = brandsTask.Result;
+        catalogItemTypes = itemTypesTask.Result;
+        isLoadingOptions = false;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        submitError = null;
+
+        model.PhotoUrls = ParsePhotoUrls(photoUrlsInput);
+        model.Tags = NormalizeTags(tagsInput);
+
+        if (model.PhotoUrls.Length == 0)
+        {
+            submitError = "Please provide at least one photo URL.";
+            return;
+        }
+
+        if (model.CatalogTypeId <= 0 || model.CatalogBrandId <= 0)
+        {
+            submitError = "Please select both a type and brand.";
+            return;
+        }
+
+        isSubmitting = true;
+
+        try
+        {
+            await CatalogService.CreateSellerListing(model);
+            await OnListingCreated.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            submitError = ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private static string[] ParsePhotoUrls(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return [];
+        }
+
+        return input
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(url => Uri.TryCreate(url, UriKind.Absolute, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string? NormalizeTags(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return null;
+        }
+
+        var normalized = input
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(tag => tag.ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return normalized.Length == 0 ? null : string.Join(',', normalized);
+    }
+}

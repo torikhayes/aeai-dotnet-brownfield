@@ -37,7 +37,7 @@ export default defineConfig({
     },
     {
       name: 'e2e tests logged in',
-      testMatch: ['**/AddItemTest.spec.ts', '**/RemoveItemTest.spec.ts'],
+      testMatch: ['**/AddItemTest.spec.ts', '**/RemoveItemTest.spec.ts', '**/SellMyClubTest.spec.ts', '**/MyListingsTest.spec.ts'],
       dependencies: ['setup'],
       use: {
         storageState: STORAGE_STATE,
@@ -45,7 +45,7 @@ export default defineConfig({
     },
     {
       name: 'e2e tests without logged in',
-      testMatch: ['**/BrowseItemTest.spec.ts'],
+      testMatch: ['**/BrowseItemTest.spec.ts', '**/SellMyClubAuthRedirect.spec.ts', '**/MyListingsAuthRedirect.spec.ts'],
     }
     // {
     //   name: 'chromium',

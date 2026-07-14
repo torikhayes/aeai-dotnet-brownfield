@@ -1,0 +1,16 @@
+@page "/user/sell-my-club"
+@attribute [Authorize]
+@inject NavigationManager Nav
+
+<PageTitle>Sell My Club | Golf Odyssey</PageTitle>
+<SectionContent SectionName="page-header-title">Sell My Club</SectionContent>
+<SectionContent SectionName="page-header-subtitle">Create a listing for your club in minutes.</SectionContent>
+
+<div class="sell-my-club-page">
+    <ListClubForm OnListingCreated="HandleListingCreated" />
+</div>
+
+@code {
+    private void HandleListingCreated()
+        => Nav.NavigateTo("/user/my-listings");
+}
