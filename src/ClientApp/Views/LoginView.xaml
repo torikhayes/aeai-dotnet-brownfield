@@ -17,7 +17,7 @@
     Shell.TabBarIsVisible="False">
     <ContentPage.Title>
         <OnPlatform x:TypeArguments="x:String">
-            <On Platform="iOS, WinUI" Value="AdventureWorks" />
+            <On Platform="iOS, WinUI" Value="Golf Odyssey" />
         </OnPlatform>
     </ContentPage.Title>
     <ContentPage.Resources>
@@ -69,11 +69,13 @@
               Grid.Row="2"
               Grid.Column="0"
               Margin="8"
-              BackgroundColor="Black"
+              BackgroundColor="{StaticResource AccentColor}"
               Command="{Binding SignInCommand}"
               CornerRadius="16"
-              Text="Login"
-              TextColor="White" />
+              Text="Sign In to Golf Odyssey"
+              TextColor="White"
+              FontSize="18"
+              FontAttributes="Bold" />
 
         <ActivityIndicator
             HorizontalOptions="Center"
