@@ -58,7 +58,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 1. **Setup**: Run `.specify/scripts/bash/setup-plan.sh --json` from repo root and parse JSON for FEATURE_SPEC, IMPL_PLAN, SPECS_DIR, BRANCH. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Load context**: Read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
+2. **Load context**: Before exploring the codebase, consult the pre-generated project context files in `.github/context/`. Always read `.github/context/eshop-overview.md` first (system architecture map, event flow, service directory). Then read the service-specific context files relevant to this feature (e.g., `.github/context/catalog-api.md`, `.github/context/ordering-api.md`). These files document architecture, API endpoints, database schemas, integration events, core classes, and file structure for every service — use them as the primary reference and only fall back to reading source files directly when the context files lack the specific detail needed. Then read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
 
 3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
    - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
