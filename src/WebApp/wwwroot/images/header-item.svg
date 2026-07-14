@@ -1,0 +1,67 @@
+<svg viewBox="0 0 1920 400" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+  <!-- Sky gradient background -->
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E0F6FF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="fairwayGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2D5016;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E3A0F;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="roughGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A6741;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2D5016;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Sky -->
+  <rect width="1920" height="400" fill="url(#skyGradient)"/>
+  
+  <!-- Clouds -->
+  <ellipse cx="300" cy="80" rx="120" ry="40" fill="#FFFFFF" opacity="0.8"/>
+  <ellipse cx="380" cy="100" rx="100" ry="35" fill="#FFFFFF" opacity="0.7"/>
+  <ellipse cx="1600" cy="120" rx="150" ry="50" fill="#FFFFFF" opacity="0.75"/>
+  <ellipse cx="1700" cy="100" rx="120" ry="40" fill="#FFFFFF" opacity="0.8"/>
+  
+  <!-- Sun -->
+  <circle cx="1850" cy="60" r="50" fill="#FFD700" opacity="0.9"/>
+  
+  <!-- Distant trees (background) -->
+  <polygon points="100,250 150,150 200,250" fill="#1E3A0F"/>
+  <polygon points="250,260 300,140 350,260" fill="#1E3A0F"/>
+  <polygon points="1750,260 1800,150 1850,260" fill="#1E3A0F"/>
+  <polygon points="1600,270 1650,160 1700,270" fill="#1E3A0F"/>
+  
+  <!-- Rough/Grass areas (sides) -->
+  <ellipse cx="100" cy="320" rx="200" ry="100" fill="url(#roughGradient)"/>
+  <ellipse cx="1820" cy="320" rx="200" ry="100" fill="url(#roughGradient)"/>
+  
+  <!-- Main fairway -->
+  <ellipse cx="960" cy="320" rx="600" ry="120" fill="url(#fairwayGradient)"/>
+  
+  <!-- Sand bunker left -->
+  <ellipse cx="600" cy="300" rx="100" ry="50" fill="#D4A574" opacity="0.9"/>
+  <path d="M 550 300 Q 520 280 550 250" stroke="#D4A574" stroke-width="15" fill="none" opacity="0.7"/>
+  
+  <!-- Sand bunker right -->
+  <ellipse cx="1320" cy="310" rx="120" ry="60" fill="#D4A574" opacity="0.9"/>
+  
+  <!-- Flagstick and flag -->
+  <line x1="960" y1="200" x2="960" y2="280" stroke="#333333" stroke-width="4"/>
+  <!-- Flag -->
+  <path d="M 960 210 L 1020 200 L 1020 220 Z" fill="#DC143C"/>
+  
+  <!-- Golf ball on tee -->
+  <circle cx="900" cy="290" r="12" fill="#FFFFFF" stroke="#333333" stroke-width="1"/>
+  <path d="M 900 282 L 895 300 L 905 300 Z" fill="#8B4513" opacity="0.6"/>
+  
+  <!-- Decorative grass texture -->
+  <line x1="450" y1="280" x2="470" y2="290" stroke="#1E3A0F" stroke-width="2" opacity="0.5"/>
+  <line x1="500" y1="290" x2="525" y2="300" stroke="#1E3A0F" stroke-width="2" opacity="0.5"/>
+  <line x1="1400" y1="285" x2="1420" y2="295" stroke="#1E3A0F" stroke-width="2" opacity="0.5"/>
+  <line x1="1450" y1="295" x2="1475" y2="305" stroke="#1E3A0F" stroke-width="2" opacity="0.5"/>
+  
+  <!-- Hole cup marker -->
+  <circle cx="960" cy="280" r="15" fill="none" stroke="#333333" stroke-width="2" stroke-dasharray="5,5" opacity="0.7"/>
+</svg>
