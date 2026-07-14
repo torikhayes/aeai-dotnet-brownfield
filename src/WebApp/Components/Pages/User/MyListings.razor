@@ -1,0 +1,11 @@
+@page "/user/my-listings"
+@attribute [Authorize]
+@attribute [StreamRendering]
+
+<PageTitle>My Listings | Golf Odyssey</PageTitle>
+<SectionContent SectionName="page-header-title">My Listings</SectionContent>
+<SectionContent SectionName="page-header-subtitle">Track your active and sold clubs in one place.</SectionContent>
+
+<div class="my-listings-page">
+    <MyListingsPage />
+</div>

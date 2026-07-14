@@ -1,0 +1,53 @@
+.list-club-form {
+  max-width: 56rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.form-field label {
+  font-weight: 600;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  border: 1px solid #cfcfcf;
+  padding: 0.65rem 0.75rem;
+  font-family: 'Open Sans';
+  font-size: 0.95rem;
+}
+
+.form-field textarea {
+  min-height: 7rem;
+}
+
+.help-text {
+  margin: 0;
+  color: #5f5f5f;
+  font-size: 0.85rem;
+}
+
+.submit-error {
+  background: #fff1f1;
+  color: #9d1414;
+  border: 1px solid #f2c2c2;
+  padding: 0.75rem;
+}
+
+@media only screen and (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
