@@ -306,14 +306,21 @@ body {
 }
 
 .login-container .btn.btn-primary {
-    border-radius: 0;
+    border-radius: 8px;
     display: flex;
     padding: 12px 24px;
     justify-content: center;
     align-items: flex-end;
     gap: 8px;
     align-self: stretch;
-    background: #000;
+    background: #00857D;
+    border-color: #00857D;
+    font-weight: 600;
+}
+
+.login-container .btn.btn-primary:hover {
+    background: #006B66;
+    border-color: #006B66;
 }
 
 .icon {
