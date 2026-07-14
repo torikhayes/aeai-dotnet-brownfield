@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('Sell My Club requires at least one photo URL', async ({ page }) => {
   await page.goto('/user/sell-my-club');
 
-  await expect(page.getByRole('heading', { name: 'Sell My Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to Golf Odyssey' })).toBeVisible();
 
   const uniqueName = `PW Photo Validation ${Date.now()}`;
 
@@ -22,7 +22,7 @@ test('Sell My Club requires at least one photo URL', async ({ page }) => {
 test('Sell My Club creates listing and redirects to My Listings', async ({ page }) => {
   await page.goto('/user/sell-my-club');
 
-  await expect(page.getByRole('heading', { name: 'Sell My Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to Golf Odyssey' })).toBeVisible();
 
   const uniqueName = `PW New Listing ${Date.now()}`;
 

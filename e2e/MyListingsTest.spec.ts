@@ -4,7 +4,7 @@ test('My Listings shows created listing details and metrics', async ({ page }) =
   const uniqueName = `PW Metrics Listing ${Date.now()}`;
 
   await page.goto('/user/sell-my-club');
-  await expect(page.getByRole('heading', { name: 'Sell My Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to Golf Odyssey' })).toBeVisible();
 
   await page.getByLabel('Club name').fill(uniqueName);
   await page.getByLabel('Type').selectOption({ index: 1 });
