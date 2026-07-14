@@ -11,7 +11,9 @@ disable-model-invocation: false
 
 ## Purpose
 
-`speckit-scripttest` reads the feature's test plan markdown file(s) and generates one `tc-{NNN}.sh` Bash script per test case, plus an updated `run-all.sh` orchestrator. Scripts are written to `FEATURE_DIR/scripts/`.
+`speckit-scripttest` reads the feature's test plan markdown file(s) and generates one `tc-{NNN}.sh` Bash script per test case, plus an updated `run-all.sh` orchestrator. Scripts are written to `FEATURE_DIR/spec-integration-tests/`.
+
+Every generated test script must verify its prerequisite data before running the main test body. If a test depends on seeded rows, lookup-table entries, auth tokens, or other preloaded fixtures, the script must check for them explicitly and skip or fail fast when they are missing.
 
 Sub-agents are spawned in parallel — one per independent markdown source file — so large test plans generate scripts without blocking the main conversation.
 
@@ -45,7 +47,7 @@ If no TC-### headings are found anywhere, stop and tell the user: "No test cases
 
 Apply the `$ARGUMENTS` filter: if non-empty, restrict to files whose basename matches the argument (case-insensitive), or to TC numbers matching the filter.
 
-Read `FEATURE_DIR/scripts/config.env` if it exists — use its variable names (`$PP`, `$IDENTITY`, `$PG_CONN`, `$TOKEN`, `$BOB_TOKEN`, `$ALICE_ID`) in generated scripts. If it does not exist, use those same defaults and note that the user should create `config.env`.
+Read `FEATURE_DIR/spec-integration-tests/config.env` if it exists — use its variable names (`$PP`, `$IDENTITY`, `$PG_CONN`, `$TOKEN`, `$BOB_TOKEN`, `$ALICE_ID`) in generated scripts. If it does not exist, use those same defaults and note that the user should create `config.env`.
 
 ### Step 3 — Spawn sub-agents (one per markdown file)
 
@@ -53,8 +55,8 @@ For **each markdown file** identified in Step 2, launch a parallel sub-agent wit
 
 > You are generating Bash test scripts for a feature test plan. Your inputs are:
 > - Source markdown file: `{absolute path to markdown file}`
-> - Scripts output directory: `{FEATURE_DIR}/scripts/`
-> - config.env path: `{FEATURE_DIR}/scripts/config.env`
+> - Scripts output directory: `{FEATURE_DIR}/spec-integration-tests/`
+> - config.env path: `{FEATURE_DIR}/spec-integration-tests/config.env`
 >
 > Instructions:
 > 1. Read the markdown file.
@@ -74,7 +76,15 @@ source "$(dirname "$0")/config.env"
 echo "=== TC-{NNN}: {TC name} ==="
 
 # ── Setup ────────────────────────────────────────────────────────────────────
-# {Any prerequisite noted in the TC — e.g. "Requires TOKEN to be set"}
+# Verify prerequisite data before exercising the scenario.
+# {Any prerequisite noted in the TC — e.g. "Requires TOKEN to be set", "Requires seeded lookup entries", "Requires existing wallet row"}
+
+{Executable prerequisite checks translated from the TC and surrounding markdown.
+ Rules:
+ - Verify required env vars, auth tokens, seeded reference data, and fixture rows before the main test body.
+ - Use curl, psql, jq, or other shell checks to confirm the prerequisite data exists and is readable.
+ - If a prerequisite is missing, echo "SKIP: prerequisite data missing" and exit 0 before any assertions.
+ - If the prerequisite cannot be checked automatically, emit a MANUAL comment only after the prerequisite check block.}
 
 PASS=true
 
@@ -99,6 +109,7 @@ fi
 ```
 
 **Additional per-script rules**:
+- Every automated TC must include at least one prerequisite-data check before any scenario action.
 - Auth-required TCs: add `source "$(dirname "$0")/get-token.sh"` guard — check `$TOKEN` is non-empty, skip with `echo "SKIP: TOKEN not set"` if missing
 - TCs that reference Bob's token: also source `get-bob-token.sh` check
 - TCs that reference Alice's sub claim: check `$ALICE_ID` is non-empty
@@ -113,7 +124,7 @@ Wait for all sub-agents to complete. For each result JSON:
 
 ### Step 5 — Generate or update run-all.sh
 
-Write `FEATURE_DIR/scripts/run-all.sh`:
+Write `FEATURE_DIR/spec-integration-tests/run-all.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -192,7 +203,7 @@ If `run-all.sh` already exists, overwrite it — it is always regenerated from t
 Print:
 
 ```
-Scripts generated in FEATURE_DIR/scripts/
+Scripts generated in FEATURE_DIR/spec-integration-tests/
 
 | Source File     | TC Cases | Generated | Skipped (manual) |
 |-----------------|----------|-----------|------------------|

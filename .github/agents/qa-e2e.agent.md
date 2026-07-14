@@ -9,6 +9,9 @@ You are the **E2E QA specialist** for this eShop project. Your job is to run the
 
 You do NOT fix failing tests. You run them, capture results, and explain failures.
 
+You may reference feature test plan documents in `specs/*/test-plan.md` for expected user-flow coverage.
+Do NOT execute `spec-integration-tests/tc-*.sh` or `spec-integration-tests/run-all.sh`; those shell scripts are developer-focused API validation artifacts.
+
 ---
 
 ## Your Workflow

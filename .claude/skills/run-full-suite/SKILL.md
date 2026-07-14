@@ -10,7 +10,7 @@ disable-model-invocation: false
 
 ## Purpose
 
-`run-full-suite` scans every `specs/*/scripts/` directory for a `run-all.sh` and/or `tc-*.sh` files, runs each suite in sequence, and produces a single consolidated report across all specs. This is the project-wide integration test runner equivalent of `dotnet test` for the speckit shell test layer.
+`run-full-suite` scans every `specs/*/spec-integration-tests/` directory for a `run-all.sh` and/or `tc-*.sh` files, runs each suite in sequence, and produces a single consolidated report across all specs. This is the project-wide integration test runner equivalent of `dotnet test` for the speckit shell test layer.
 
 ---
 
@@ -40,7 +40,7 @@ find specs -maxdepth 3 -name "run-all.sh" | sort
 For each found `run-all.sh`, derive:
 - `SPEC_DIR` — the parent `specs/{NNN}-{name}/` folder
 - `SPEC_ID` — the `{NNN}-{name}` folder name
-- `TC_COUNT` — number of `tc-*.sh` files in the same `scripts/` directory
+- `TC_COUNT` — number of `tc-*.sh` files in the same `spec-integration-tests/` directory
 - `HAS_CONFIG` — whether `config.env` exists in the scripts directory
 
 If no `run-all.sh` files are found anywhere under `specs/`, stop and tell the user:
@@ -74,6 +74,7 @@ Before running any suite, verify tools are available:
 command -v curl  || echo "WARN: curl not found — HTTP tests will fail across all suites"
 command -v jq    || echo "WARN: jq not found — JSON assertions will fail across all suites"
 command -v psql  || echo "WARN: psql not found — DB tests will fail across all suites"
+command -v docker || echo "WARN: docker not found — detect-ports.sh (env var refresh) will not be able to derive PG_CONN"
 ```
 
 Print a one-line warning for any missing tool. Do not block execution — scripts will report their own FAILs.
@@ -89,18 +90,24 @@ For each suite in discovery order (filtered if `$ARGUMENTS` specified):
    ════════════════════════════════════════════════════════
    ```
 
-2. Run the suite using `run_in_terminal`:
+2. **Refresh env vars before running.** If `specs/{SPEC_ID}/spec-integration-tests/detect-ports.sh` exists, run it with `--update` first so `config.env` reflects the current AppHost run's ports and connection strings (Aspire reassigns ports/passwords on every restart, so a stale `config.env` will cause spurious failures):
    ```bash
-   bash "specs/{SPEC_ID}/scripts/run-all.sh"
+  bash "specs/{SPEC_ID}/spec-integration-tests/detect-ports.sh" --update
+   ```
+   If the script reports it cannot detect a running project (e.g. the AppHost isn't running), surface that warning to the user before continuing — the suite will likely fail without it.
+
+3. Run the suite using `run_in_terminal`:
+   ```bash
+  bash "specs/{SPEC_ID}/spec-integration-tests/run-all.sh"
    ```
 
-3. Parse stdout for the `TEST SUMMARY` block — extract `Passed`, `Failed`, `Skipped`, `Total`.
+4. Parse stdout for the `TEST SUMMARY` block — extract `Passed`, `Failed`, `Skipped`, `Total`.
 
-4. Store results as `{SPEC_ID, passed, failed, skipped, total, duration_seconds}`.
+5. Store results as `{SPEC_ID, passed, failed, skipped, total, duration_seconds}`.
 
-5. If `--fail-fast` is set and `failed > 0`: print the failure details for this suite, then stop and print the partial cross-spec summary (Step 5) with a note that execution was halted early.
+6. If `--fail-fast` is set and `failed > 0`: print the failure details for this suite, then stop and print the partial cross-spec summary (Step 5) with a note that execution was halted early.
 
-6. Continue to the next suite regardless of failures (unless `--fail-fast`).
+7. Continue to the next suite regardless of failures (unless `--fail-fast`).
 
 ### Step 5 — Cross-spec summary report
 
