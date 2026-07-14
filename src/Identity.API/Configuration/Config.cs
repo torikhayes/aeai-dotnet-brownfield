@@ -185,6 +185,25 @@
                     {
                         "webhooks"
                     }
+                },
+                new Client
+                {
+                    ClientId = "testscript",
+                    ClientName = "Test Script Client (Dev Only)",
+                    AllowedGrantTypes = GrantTypes.ResourceOwnerPassword,
+                    ClientSecrets =
+                    {
+                        new Secret("secret".Sha256())
+                    },
+                    AllowedScopes = new List<string>
+                    {
+                        IdentityServerConstants.StandardScopes.OpenId,
+                        IdentityServerConstants.StandardScopes.Profile,
+                        "orders",
+                        "basket",
+                    },
+                    AlwaysIncludeUserClaimsInIdToken = true,
+                    AccessTokenLifetime = 60 * 60 * 2, // 2 hours
                 }
             };
         }

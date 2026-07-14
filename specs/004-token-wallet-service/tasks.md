@@ -20,8 +20,8 @@ description: "Task list for 004-paymentprocessor-token-ledger"
 
 **Purpose**: Create new test project and add NuGet packages required by every subsequent phase.
 
-- [ ] T001 Create tests/PaymentProcessor.UnitTests/PaymentProcessor.UnitTests.csproj (xUnit, Microsoft.Testing.Platform, Moq, EF Core InMemory — follow tests/Basket.UnitTests pattern)
-- [ ] T002 Update src/PaymentProcessor/PaymentProcessor.csproj — add `Npgsql.EntityFrameworkCore.PostgreSQL` and `Microsoft.EntityFrameworkCore.Relational` package references (follow src/Webhooks.API pattern)
+- [X] T001 Create tests/PaymentProcessor.UnitTests/PaymentProcessor.UnitTests.csproj (xUnit, Microsoft.Testing.Platform, Moq, EF Core InMemory — follow tests/Basket.UnitTests pattern)
+- [X] T002 Update src/PaymentProcessor/PaymentProcessor.csproj — add `Npgsql.EntityFrameworkCore.PostgreSQL` and `Microsoft.EntityFrameworkCore.Relational` package references (follow src/Webhooks.API pattern)
 
 **Checkpoint**: Test project compiles; PaymentProcessor.csproj references EF Core + Npgsql.
 
@@ -33,17 +33,17 @@ description: "Task list for 004-paymentprocessor-token-ledger"
 
 **⚠️ CRITICAL**: No user-story work can begin until this phase is complete.
 
-- [ ] T003 Update src/eShop.AppHost/Program.cs — declare `var tokenDb = postgres.AddDatabase("tokendb")`, add `.WithReference(tokenDb)` and `.WithEnvironment("Identity__Url", identityEndpoint)` to the `payment-processor` resource (follow `webhooks-api` reference pattern)
-- [ ] T004 [P] Create src/PaymentProcessor/TokenLedger/Model/TokenWallet.cs — `UserId` string PK, `Balance` int, `[Timestamp] byte[] RowVersion` per data-model.md
-- [ ] T005 [P] Create src/PaymentProcessor/TokenLedger/Model/TokenTransaction.cs — `Guid Id`, `string UserId`, `int Amount`, `string Reason`, `string RelatedEventId`, `string? LookupTableVersion`, `string? CatalogItemId`, `DateTime CreatedAt` per data-model.md (`CatalogItemId` populated on earn transactions only)
-- [ ] T006 [P] Create src/PaymentProcessor/TokenLedger/Model/TokenAwardLookupEntry.cs — `Guid Id`, `string ClubCategory`, `string ConditionGrade`, `int TokenAmount`, `string TableVersion`, `DateTime EffectiveFrom` per data-model.md
-- [ ] T007 [P] Create src/PaymentProcessor/TokenLedger/Model/TokenAwardedListing.cs — `string CatalogItemId` PK, `Guid TransactionId`, `DateTime AwardedAt` per data-model.md
-- [ ] T008 Create src/PaymentProcessor/TokenLedger/Infrastructure/TokenDbContext.cs — register all four entities; configure HasKey, HasIndex, IsRowVersion(), and HasDefaultValueSql per data-model.md EF Core configuration blocks
-- [ ] T009 Create src/PaymentProcessor/TokenLedger/Infrastructure/TokenDbSeeder.cs — seed all 28 TokenAwardLookupEntry rows (v1.0.0, EffectiveFrom = epoch) per the seed table in data-model.md; follow `CatalogContextSeed` pattern; seeder MUST be idempotent (check row count or use `ON CONFLICT DO NOTHING` before inserting to avoid re-seeding on restart)
-- [ ] T010 Add EF Core initial migration for TokenDbContext — run `dotnet ef migrations add InitialTokenLedger --context TokenDbContext` from src/PaymentProcessor and commit generated files under src/PaymentProcessor/TokenLedger/Infrastructure/Migrations/
-- [ ] T011 Create src/PaymentProcessor/TokenLedger/Services/TokenLedgerExtensions.cs — `AddTokenLedger()` extension: calls `builder.AddNpgsqlDbContext<TokenDbContext>("tokendb")` and `builder.Services.AddMigration<TokenDbContext, TokenDbSeeder>()`; registers `TokenLedgerService` as scoped
-- [ ] T012 Update src/PaymentProcessor/appsettings.json — add `"TokenOptions": { "MaxConcurrencyRetries": 3 }` section and bind to a `TokenOptions` record
-- [ ] T013 Update src/PaymentProcessor/GlobalUsings.cs — add global usings for `PaymentProcessor.TokenLedger.Model`, `PaymentProcessor.TokenLedger.Infrastructure`, `PaymentProcessor.TokenLedger.Services`
+- [X] T003 Update src/eShop.AppHost/Program.cs — declare `var tokenDb = postgres.AddDatabase("tokendb")`, add `.WithReference(tokenDb)` and `.WithEnvironment("Identity__Url", identityEndpoint)` to the `payment-processor` resource (follow `webhooks-api` reference pattern)
+- [X] T004 [P] Create src/PaymentProcessor/TokenLedger/Model/TokenWallet.cs — `UserId` string PK, `Balance` int, `[Timestamp] byte[] RowVersion` per data-model.md
+- [X] T005 [P] Create src/PaymentProcessor/TokenLedger/Model/TokenTransaction.cs — `Guid Id`, `string UserId`, `int Amount`, `string Reason`, `string RelatedEventId`, `string? LookupTableVersion`, `string? CatalogItemId`, `DateTime CreatedAt` per data-model.md (`CatalogItemId` populated on earn transactions only)
+- [X] T006 [P] Create src/PaymentProcessor/TokenLedger/Model/TokenAwardLookupEntry.cs — `Guid Id`, `string ClubCategory`, `string ConditionGrade`, `int TokenAmount`, `string TableVersion`, `DateTime EffectiveFrom` per data-model.md
+- [X] T007 [P] Create src/PaymentProcessor/TokenLedger/Model/TokenAwardedListing.cs — `string CatalogItemId` PK, `Guid TransactionId`, `DateTime AwardedAt` per data-model.md
+- [X] T008 Create src/PaymentProcessor/TokenLedger/Infrastructure/TokenDbContext.cs — register all four entities; configure HasKey, HasIndex, IsRowVersion(), and HasDefaultValueSql per data-model.md EF Core configuration blocks
+- [X] T009 Create src/PaymentProcessor/TokenLedger/Infrastructure/TokenDbSeeder.cs — seed all 28 TokenAwardLookupEntry rows (v1.0.0, EffectiveFrom = epoch) per the seed table in data-model.md; follow `CatalogContextSeed` pattern; seeder MUST be idempotent (check row count or use `ON CONFLICT DO NOTHING` before inserting to avoid re-seeding on restart)
+- [X] T010 Add EF Core initial migration for TokenDbContext — run `dotnet ef migrations add InitialTokenLedger --context TokenDbContext` from src/PaymentProcessor and commit generated files under src/PaymentProcessor/TokenLedger/Infrastructure/Migrations/
+- [X] T011 Create src/PaymentProcessor/TokenLedger/Services/TokenLedgerExtensions.cs — `AddTokenLedger()` extension: calls `builder.AddNpgsqlDbContext<TokenDbContext>("tokendb")` and `builder.Services.AddMigration<TokenDbContext, TokenDbSeeder>()`; registers `TokenLedgerService` as scoped
+- [X] T012 Update src/PaymentProcessor/appsettings.json — add `"TokenOptions": { "MaxConcurrencyRetries": 3 }` section and bind to a `TokenOptions` record
+- [X] T013 Update src/PaymentProcessor/GlobalUsings.cs — add global usings for `PaymentProcessor.TokenLedger.Model`, `PaymentProcessor.TokenLedger.Infrastructure`, `PaymentProcessor.TokenLedger.Services`
 
 **Checkpoint**: `dotnet build src/PaymentProcessor` passes; AppHost adds `tokendb`; all entity and context classes compile.
 
@@ -59,15 +59,15 @@ description: "Task list for 004-paymentprocessor-token-ledger"
 
 ### Tests for User Story 1 ⚠️ Write first — must FAIL before implementation
 
-- [ ] T014 [US1] Write failing unit tests in tests/PaymentProcessor.UnitTests/TokenLedger/TokenLedgerServiceTests.cs covering: (a) AwardTokens creates wallet on first award; (b) duplicate EventId does not double-credit; (c) duplicate CatalogItemId from a resubmitted listing is rejected; (d) DbUpdateConcurrencyException triggers retry up to MaxConcurrencyRetries; (e) no SellerId → no credit, no error; (f) successful award emits a structured `Information` log entry with UserId, Amount, Reason, and RelatedEventId fields (FR-015)
-- [ ] T015 [P] [US1] Write failing unit tests in tests/PaymentProcessor.UnitTests/TokenLedger/TokenAwardLookupTests.cs covering: (a) correct seed values returned for all 28 (category × condition) pairs; (b) active version is latest EffectiveFrom ≤ UtcNow; (c) future EffectiveFrom row is not returned
+- [X] T014 [US1] Write failing unit tests in tests/PaymentProcessor.UnitTests/TokenLedger/TokenLedgerServiceTests.cs covering: (a) AwardTokens creates wallet on first award; (b) duplicate EventId does not double-credit; (c) duplicate CatalogItemId from a resubmitted listing is rejected; (d) DbUpdateConcurrencyException triggers retry up to MaxConcurrencyRetries; (e) no SellerId → no credit, no error; (f) successful award emits a structured `Information` log entry with UserId, Amount, Reason, and RelatedEventId fields (FR-015)
+- [X] T015 [P] [US1] Write failing unit tests in tests/PaymentProcessor.UnitTests/TokenLedger/TokenAwardLookupTests.cs covering: (a) correct seed values returned for all 28 (category × condition) pairs; (b) active version is latest EffectiveFrom ≤ UtcNow; (c) future EffectiveFrom row is not returned
 
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Create src/PaymentProcessor/IntegrationEvents/ClubListingVerifiedIntegrationEvent.cs — `record ClubListingVerifiedIntegrationEvent(Guid Id, DateTime CreationDate, string SellerId, string CatalogItemId, string Category, string Condition) : IntegrationEvent(Id, CreationDate)` per data-model.md
-- [ ] T017 [US1] Implement `TokenLedgerService.AwardTokens(ClubListingVerifiedIntegrationEvent)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — resolve active lookup entry, atomically insert TokenTransaction + TokenAwardedListing + upsert TokenWallet with RowVersion retry loop (max = TokenOptions.MaxConcurrencyRetries); return early on duplicate EventId or CatalogItemId; log when no SellerId; emit FR-015 structured `Information` log entry (UserId, Amount, Reason, RelatedEventId) and OpenTelemetry span attributes on successful award
-- [ ] T018 [US1] Create src/PaymentProcessor/IntegrationEvents/EventHandling/ClubListingVerifiedIntegrationEventHandler.cs — `IIntegrationEventHandler<ClubListingVerifiedIntegrationEvent>` that calls `TokenLedgerService.AwardTokens()`; follow `OrderStatusChangedToStockConfirmedIntegrationEventHandler` pattern
-- [ ] T019 [US1] Register `ClubListingVerifiedIntegrationEventHandler` and `ClubListingVerifiedIntegrationEvent` subscription in src/PaymentProcessor/Program.cs via `app.UseSubscription<ClubListingVerifiedIntegrationEvent, ClubListingVerifiedIntegrationEventHandler>()`; call `AddTokenLedger()` on the builder
+- [X] T016 [P] [US1] Create src/PaymentProcessor/IntegrationEvents/ClubListingVerifiedIntegrationEvent.cs — `record ClubListingVerifiedIntegrationEvent(Guid Id, DateTime CreationDate, string SellerId, string CatalogItemId, string Category, string Condition) : IntegrationEvent(Id, CreationDate)` per data-model.md
+- [X] T017 [US1] Implement `TokenLedgerService.AwardTokens(ClubListingVerifiedIntegrationEvent)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — resolve active lookup entry, atomically insert TokenTransaction + TokenAwardedListing + upsert TokenWallet with RowVersion retry loop (max = TokenOptions.MaxConcurrencyRetries); return early on duplicate EventId or CatalogItemId; log when no SellerId; emit FR-015 structured `Information` log entry (UserId, Amount, Reason, RelatedEventId) and OpenTelemetry span attributes on successful award
+- [X] T018 [US1] Create src/PaymentProcessor/IntegrationEvents/EventHandling/ClubListingVerifiedIntegrationEventHandler.cs — `IIntegrationEventHandler<ClubListingVerifiedIntegrationEvent>` that calls `TokenLedgerService.AwardTokens()`; follow `OrderStatusChangedToStockConfirmedIntegrationEventHandler` pattern
+- [X] T019 [US1] Register `ClubListingVerifiedIntegrationEventHandler` and `ClubListingVerifiedIntegrationEvent` subscription in src/PaymentProcessor/Program.cs via `app.UseSubscription<ClubListingVerifiedIntegrationEvent, ClubListingVerifiedIntegrationEventHandler>()`; call `AddTokenLedger()` on the builder
 - [ ] T020 [US1] Add `ClubListingVerifiedIntegrationEvent` publisher to Catalog.API — create src/Catalog.API/IntegrationEvents/Events/ClubListingVerifiedIntegrationEvent.cs (matching payload shape) and publish from the listing verification code path when `photoCount >= 2` (uniform 2-photo minimum across all condition grades, per spec 007 edge cases); follow `OrderStartedIntegrationEvent` publish pattern in Catalog.API. ⚠️ **Cross-spec dependency**: requires spec 007 (Trust & Safety) to implement the listing verification flow in Catalog.API first — defer T020 if spec 007 is not yet implemented
 
 **Checkpoint**: Run app; submit a club listing; confirm `GET /api/tokens/balance` returns the correct lookup amount. Duplicate event delivery must not double-credit.
@@ -84,13 +84,13 @@ description: "Task list for 004-paymentprocessor-token-ledger"
 
 ### Tests for User Story 2 ⚠️ Write first — must FAIL before implementation
 
-- [ ] T021 [US2] Add failing unit tests to tests/PaymentProcessor.UnitTests/TokenLedger/TokenLedgerServiceTests.cs: (a) GetBalance returns 0 for unknown UserId without DB write; (b) GetBalance returns correct value when wallet exists
+- [X] T021 [US2] Add failing unit tests to tests/PaymentProcessor.UnitTests/TokenLedger/TokenLedgerServiceTests.cs: (a) GetBalance returns 0 for unknown UserId without DB write; (b) GetBalance returns correct value when wallet exists
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Implement `TokenLedgerService.GetBalance(string userId)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — `FirstOrDefaultAsync` by UserId; return `wallet?.Balance ?? 0`; no write on read
-- [ ] T023 [US2] Add `GET /api/tokens/balance` route to src/PaymentProcessor/TokenLedger/Apis/TokensApi.cs — extract `UserId` from JWT `sub` claim; call `GetBalance()`; return `{ "balance": n }` (200) or 401 (no JWT); follow contracts/tokens-api.md response shape
-- [ ] T024 [US2] Wire auth and `TokensApi.MapTokensApi()` into src/PaymentProcessor/Program.cs — call `builder.Services.AddDefaultAuthentication()` (requires `Identity__Url` env var added in T003); call `app.MapTokensApi()` after `app.MapDefaultEndpoints()`
+- [X] T022 [US2] Implement `TokenLedgerService.GetBalance(string userId)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — `FirstOrDefaultAsync` by UserId; return `wallet?.Balance ?? 0`; no write on read
+- [X] T023 [US2] Add `GET /api/tokens/balance` route to src/PaymentProcessor/TokenLedger/Apis/TokensApi.cs — extract `UserId` from JWT `sub` claim; call `GetBalance()`; return `{ "balance": n }` (200) or 401 (no JWT); follow contracts/tokens-api.md response shape
+- [X] T024 [US2] Wire auth and `TokensApi.MapTokensApi()` into src/PaymentProcessor/Program.cs — call `builder.Services.AddDefaultAuthentication()` (requires `Identity__Url` env var added in T003); call `app.MapTokensApi()` after `app.MapDefaultEndpoints()`
 
 **Checkpoint**: `GET /api/tokens/balance` with a valid JWT returns 200 with correct balance. Unauthenticated request returns 401.
 
@@ -106,12 +106,12 @@ description: "Task list for 004-paymentprocessor-token-ledger"
 
 ### Tests for User Story 3 ⚠️ Write first — must FAIL before implementation
 
-- [ ] T025a [US3] Write failing unit tests in tests/PaymentProcessor.UnitTests/TokenLedger/TokenLedgerServiceTests.cs covering: (a) GetTransactions returns empty result (totalCount 0, empty items) for unknown UserId; (b) results are returned in reverse-chronological order; (c) earn transaction item has non-null `catalogItemId` and `relatedEventId`; (d) spend transaction item has `null` `catalogItemId`; (e) `pageSize` cap of 100 is enforced; (f) page beyond total count returns empty items array
+- [X] T025a [US3] Write failing unit tests in tests/PaymentProcessor.UnitTests/TokenLedger/TokenLedgerServiceTests.cs covering: (a) GetTransactions returns empty result (totalCount 0, empty items) for unknown UserId; (b) results are returned in reverse-chronological order; (c) earn transaction item has non-null `catalogItemId` and `relatedEventId`; (d) spend transaction item has `null` `catalogItemId`; (e) `pageSize` cap of 100 is enforced; (f) page beyond total count returns empty items array
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Implement `TokenLedgerService.GetTransactions(string userId, int page, int pageSize)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — query `TokenTransactions` filtered by `UserId`, ordered by `CreatedAt DESC`, paginated; return `(totalCount, items)` including `relatedEventId` and `catalogItemId` (null on spend transactions) per FR-004 and FR-009
-- [ ] T026 [US3] Add `GET /api/tokens/transactions` route to src/PaymentProcessor/TokenLedger/Apis/TokensApi.cs — accept `page` (default 1) and `pageSize` (default 20, max 100) query params; call `GetTransactions()`; return paginated response per contracts/tokens-api.md `GET /api/tokens/transactions` shape
+- [X] T025 [US3] Implement `TokenLedgerService.GetTransactions(string userId, int page, int pageSize)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — query `TokenTransactions` filtered by `UserId`, ordered by `CreatedAt DESC`, paginated; return `(totalCount, items)` including `relatedEventId` and `catalogItemId` (null on spend transactions) per FR-004 and FR-009
+- [X] T026 [US3] Add `GET /api/tokens/transactions` route to src/PaymentProcessor/TokenLedger/Apis/TokensApi.cs — accept `page` (default 1) and `pageSize` (default 20, max 100) query params; call `GetTransactions()`; return paginated response per contracts/tokens-api.md `GET /api/tokens/transactions` shape
 
 **Checkpoint**: `GET /api/tokens/transactions` returns paginated reverse-chronological log. `lookupTableVersion` is populated on earn rows and `null` on spend rows.
 
@@ -127,12 +127,12 @@ description: "Task list for 004-paymentprocessor-token-ledger"
 
 ### Tests for User Story 4 ⚠️ Write first — must FAIL before implementation
 
-- [ ] T026a [US4] Write failing unit tests in tests/PaymentProcessor.UnitTests/TokenLedger/TokenAwardLookupTests.cs covering: (a) GetRewardPreview returns correct tokenAmount and tableVersion for a valid (category, condition) pair; (b) GetRewardPreview returns null for unknown combination; (c) active entry is the latest EffectiveFrom ≤ UtcNow, not a future-dated row
+- [X] T026a [US4] Write failing unit tests in tests/PaymentProcessor.UnitTests/TokenLedger/TokenAwardLookupTests.cs covering: (a) GetRewardPreview returns correct tokenAmount and tableVersion for a valid (category, condition) pair; (b) GetRewardPreview returns null for unknown combination; (c) active entry is the latest EffectiveFrom ≤ UtcNow, not a future-dated row
 
 ### Implementation for User Story 4
 
-- [ ] T027 [P] [US4] Implement `TokenLedgerService.GetRewardPreview(string category, string condition)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — run the active-entry query (EffectiveFrom ≤ UtcNow, ordered desc, FirstOrDefaultAsync); return `(tokenAmount, tableVersion)` or null if not found
-- [ ] T028 [P] [US4] Add `GET /api/tokens/reward-preview` route to src/PaymentProcessor/TokenLedger/Apis/TokensApi.cs — validate `category` and `condition` query params (400 on missing/invalid); call `GetRewardPreview()`; return 200 `{ tokenAmount, tableVersion }` or 404 when no entry found; no `[Authorize]` attribute per contracts/tokens-api.md
+- [X] T027 [P] [US4] Implement `TokenLedgerService.GetRewardPreview(string category, string condition)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — run the active-entry query (EffectiveFrom ≤ UtcNow, ordered desc, FirstOrDefaultAsync); return `(tokenAmount, tableVersion)` or null if not found
+- [X] T028 [P] [US4] Add `GET /api/tokens/reward-preview` route to src/PaymentProcessor/TokenLedger/Apis/TokensApi.cs — validate `category` and `condition` query params (400 on missing/invalid); call `GetRewardPreview()`; return 200 `{ tokenAmount, tableVersion }` or 404 when no entry found; no `[Authorize]` attribute per contracts/tokens-api.md
 
 **Checkpoint**: `GET /api/tokens/reward-preview?category=Iron+Set&condition=Good` returns `{ "tokenAmount": 70, "tableVersion": "1.0.0" }` without authentication.
 
@@ -146,12 +146,12 @@ description: "Task list for 004-paymentprocessor-token-ledger"
 
 ### Tests for Spend Path ⚠️ Write first — must FAIL before implementation
 
-- [ ] T029 Add failing unit tests to tests/PaymentProcessor.UnitTests/TokenLedger/TokenLedgerServiceTests.cs: (a) SpendTokens debits balance and inserts TokenTransaction; (b) insufficient balance returns explicit error, balance unchanged; (c) duplicate orderId (RelatedEventId) returns 409 without double-debit; (d) concurrent debit triggers RowVersion retry; (e) final balance is ≥ 0 after concurrent debits exhausting balance; (f) `amount = 0` or negative returns validation error with no DB write and no TokenTransaction inserted (FR-011); (g) successful debit emits a structured `Information` log entry with UserId, Amount, Reason, and RelatedEventId fields (FR-015)
+- [X] T029 Add failing unit tests to tests/PaymentProcessor.UnitTests/TokenLedger/TokenLedgerServiceTests.cs: (a) SpendTokens debits balance and inserts TokenTransaction; (b) insufficient balance returns explicit error, balance unchanged; (c) duplicate orderId (RelatedEventId) returns 409 without double-debit; (d) concurrent debit triggers RowVersion retry; (e) final balance is ≥ 0 after concurrent debits exhausting balance; (f) `amount = 0` or negative returns validation error with no DB write and no TokenTransaction inserted (FR-011); (g) successful debit emits a structured `Information` log entry with UserId, Amount, Reason, and RelatedEventId fields (FR-015)
 
 ### Implementation for Spend Endpoint
 
-- [ ] T030 Implement `TokenLedgerService.SpendTokens(string userId, int amount, string orderId)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — check duplicate `RelatedEventId`; load wallet; reject if `balance - amount < 0`; decrement balance; insert TokenTransaction (`amount` as negative, `reason = "purchase debit"`, `CatalogItemId = null`); wrap in RowVersion retry loop up to `MaxConcurrencyRetries`; emit FR-015 structured `Information` log entry (UserId, Amount, Reason, RelatedEventId) and OpenTelemetry span attributes on successful debit
-- [ ] T031 Add `POST /api/tokens/spend` route to src/PaymentProcessor/TokenLedger/Apis/TokensApi.cs — accept `{ userId, amount, orderId }` body; validate fields (400 on invalid); call `SpendTokens()`; return 200 `{ newBalance }` on success, 400 on insufficient balance, 409 on duplicate orderId per contracts/tokens-api.md
+- [X] T030 Implement `TokenLedgerService.SpendTokens(string userId, int amount, string orderId)` in src/PaymentProcessor/TokenLedger/Services/TokenLedgerService.cs — check duplicate `RelatedEventId`; load wallet; reject if `balance - amount < 0`; decrement balance; insert TokenTransaction (`amount` as negative, `reason = "purchase debit"`, `CatalogItemId = null`); wrap in RowVersion retry loop up to `MaxConcurrencyRetries`; emit FR-015 structured `Information` log entry (UserId, Amount, Reason, RelatedEventId) and OpenTelemetry span attributes on successful debit
+- [X] T031 Add `POST /api/tokens/spend` route to src/PaymentProcessor/TokenLedger/Apis/TokensApi.cs — accept `{ userId, amount, orderId }` body; validate fields (400 on invalid); call `SpendTokens()`; return 200 `{ newBalance }` on success, 400 on insufficient balance, 409 on duplicate orderId per contracts/tokens-api.md
 
 **Checkpoint**: Concurrent spend requests never push balance below zero (SC-005). Duplicate `orderId` returns 409 without re-debiting.
 

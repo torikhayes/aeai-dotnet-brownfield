@@ -1,0 +1,97 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "run: AppHost (All Services)",
+      "type": "shell",
+      "command": "dotnet watch run --project '${workspaceFolder}/src/eShop.AppHost/eShop.AppHost.csproj'",
+      "isBackground": true,
+      "problemMatcher": "$msCompile",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "build: eShop.AppHost",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/eShop.AppHost/eShop.AppHost.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: Identity.API",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/Identity.API/Identity.API.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: Basket.API",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/Basket.API/Basket.API.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: Catalog.API",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/Catalog.API/Catalog.API.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: Ordering.API",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/Ordering.API/Ordering.API.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: OrderProcessor",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/OrderProcessor/OrderProcessor.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: PaymentProcessor",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/PaymentProcessor/PaymentProcessor.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: Webhooks.API",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/Webhooks.API/Webhooks.API.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: WebhookClient",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/WebhookClient/WebhookClient.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: WebApp",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/src/WebApp/WebApp.csproj'",
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build: All",
+      "type": "shell",
+      "command": "dotnet build '${workspaceFolder}/eShop.slnx'",
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+  ]
+}
