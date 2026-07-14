@@ -18,13 +18,13 @@ using Microsoft.Extensions.Options;
 namespace eShop.Catalog.FunctionalTests;
 
 /// <summary>Fake auth handler for seller listing tests. Any request with Bearer token "seller-{userId}" authenticates as that user.</summary>
-public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+public class SellerTestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public const string SchemeName = "TestAuth";
     public const string TestSeller1 = "seller-user-001";
     public const string TestSeller2 = "seller-user-002";
 
-    public TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
+    public SellerTestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
         : base(options, logger, encoder) { }
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -43,7 +43,7 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     }
 }
 
-/// <summary>Fixture that overrides auth with TestAuthHandler for seller endpoint tests.</summary>
+/// <summary>Fixture that overrides auth with SellerTestAuthHandler for seller endpoint tests.</summary>
 public sealed class SellerCatalogApiFixture : CatalogApiFixture
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -52,8 +52,8 @@ public sealed class SellerCatalogApiFixture : CatalogApiFixture
         builder.ConfigureTestServices(services =>
         {
             // Replace JWT auth with test handler so we can control the user identity
-            services.AddAuthentication(TestAuthHandler.SchemeName)
-                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, null);
+            services.AddAuthentication(SellerTestAuthHandler.SchemeName)
+                .AddScheme<AuthenticationSchemeOptions, SellerTestAuthHandler>(SellerTestAuthHandler.SchemeName, null);
         });
     }
 }
@@ -117,7 +117,7 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
     [Fact]
     public async Task CreateListing_Authenticated_ReturnsCreatedWithSellerId()
     {
-        var client = AuthClient(TestAuthHandler.TestSeller1);
+        var client = AuthClient(SellerTestAuthHandler.TestSeller1);
 
         var response = await client.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("T008"), TestContext.Current.CancellationToken);
 
@@ -130,7 +130,7 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
         itemResponse.EnsureSuccessStatusCode();
         var item = JsonSerializer.Deserialize<CatalogItem>(
             await itemResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), _json);
-        Assert.Equal(TestAuthHandler.TestSeller1, item!.SellerId);
+        Assert.Equal(SellerTestAuthHandler.TestSeller1, item!.SellerId);
         Assert.Equal(1, item.AvailableStock);
     }
 
@@ -153,7 +153,7 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
     [Fact]
     public async Task CreateListing_MissingRequiredFields_Returns400()
     {
-        var client = AuthClient(TestAuthHandler.TestSeller1);
+        var client = AuthClient(SellerTestAuthHandler.TestSeller1);
         // Price = 0 and no name — send raw JSON with missing Name
         var badPayload = new { Price = 0, CatalogTypeId = 1, CatalogBrandId = 1, Condition = "Good", PhotoUrls = new[] { "https://example.com/p.jpg" } };
 
@@ -168,7 +168,7 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
     [Fact]
     public async Task CreateListing_NoPhotos_Returns400()
     {
-        var client = AuthClient(TestAuthHandler.TestSeller1);
+        var client = AuthClient(SellerTestAuthHandler.TestSeller1);
         var noPhoto = new CreateSellerListingRequest("Test Club", 99m, 1, 1, "Good", []);
 
         var response = await client.PostAsJsonAsync("/api/catalog/items/listings", noPhoto, TestContext.Current.CancellationToken);
@@ -184,25 +184,25 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
     [Fact]
     public async Task GetBySeller_ReturnsOnlyThatSellersItems()
     {
-        var seller1Client = AuthClient(TestAuthHandler.TestSeller1);
+        var seller1Client = AuthClient(SellerTestAuthHandler.TestSeller1);
         var anonClient = AnonClient();
 
         // Create 2 listings for seller1, 1 for seller2
         await seller1Client.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("byS1a"), TestContext.Current.CancellationToken);
         await seller1Client.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("byS1b"), TestContext.Current.CancellationToken);
 
-        var seller2Client = AuthClient(TestAuthHandler.TestSeller2);
+        var seller2Client = AuthClient(SellerTestAuthHandler.TestSeller2);
         await seller2Client.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("byS2"), TestContext.Current.CancellationToken);
 
         // Fetch seller1's listings (public endpoint)
-        var response = await anonClient.GetAsync($"/api/catalog/items/by-seller/{TestAuthHandler.TestSeller1}", TestContext.Current.CancellationToken);
+        var response = await anonClient.GetAsync($"/api/catalog/items/by-seller/{SellerTestAuthHandler.TestSeller1}", TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
 
         var result = JsonSerializer.Deserialize<PaginatedItems<CatalogItem>>(
             await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), _json);
 
-        Assert.True(result!.Data.All(x => x.SellerId == TestAuthHandler.TestSeller1));
-        Assert.DoesNotContain(result.Data, x => x.SellerId == TestAuthHandler.TestSeller2);
+        Assert.True(result!.Data.All(x => x.SellerId == SellerTestAuthHandler.TestSeller1));
+        Assert.DoesNotContain(result.Data, x => x.SellerId == SellerTestAuthHandler.TestSeller2);
     }
 
     // -----------------------------------------------------------------------
@@ -227,8 +227,8 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
     [Fact]
     public async Task GetMyListings_ReturnsOnlyCallerItems()
     {
-        var seller1 = AuthClient(TestAuthHandler.TestSeller1);
-        var seller2 = AuthClient(TestAuthHandler.TestSeller2);
+        var seller1 = AuthClient(SellerTestAuthHandler.TestSeller1);
+        var seller2 = AuthClient(SellerTestAuthHandler.TestSeller2);
 
         await seller1.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("myS1"), TestContext.Current.CancellationToken);
         await seller2.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("myS2"), TestContext.Current.CancellationToken);
@@ -239,8 +239,8 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
         var result = JsonSerializer.Deserialize<PaginatedItems<CatalogItem>>(
             await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), _json);
 
-        Assert.True(result!.Data.All(x => x.SellerId == TestAuthHandler.TestSeller1));
-        Assert.DoesNotContain(result.Data, x => x.SellerId == TestAuthHandler.TestSeller2);
+        Assert.True(result!.Data.All(x => x.SellerId == SellerTestAuthHandler.TestSeller1));
+        Assert.DoesNotContain(result.Data, x => x.SellerId == SellerTestAuthHandler.TestSeller2);
     }
 
     // -----------------------------------------------------------------------
@@ -249,18 +249,18 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
     [Fact]
     public async Task GetMyListings_DoesNotReturnOtherSellerItems()
     {
-        var seller2 = AuthClient(TestAuthHandler.TestSeller2);
+        var seller2 = AuthClient(SellerTestAuthHandler.TestSeller2);
         await seller2.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("t018"), TestContext.Current.CancellationToken);
 
         // Seller1 should NOT see seller2's item
-        var seller1 = AuthClient(TestAuthHandler.TestSeller1);
+        var seller1 = AuthClient(SellerTestAuthHandler.TestSeller1);
         var response = await seller1.GetAsync("/api/catalog/items/my-listings", TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
 
         var result = JsonSerializer.Deserialize<PaginatedItems<CatalogItem>>(
             await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), _json);
 
-        Assert.DoesNotContain(result!.Data, x => x.SellerId == TestAuthHandler.TestSeller2);
+        Assert.DoesNotContain(result!.Data, x => x.SellerId == SellerTestAuthHandler.TestSeller2);
     }
 
     // -----------------------------------------------------------------------
@@ -269,7 +269,7 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
     [Fact]
     public async Task DeactivateListing_Owner_SetsAvailableStockToZero()
     {
-        var seller = AuthClient(TestAuthHandler.TestSeller1);
+        var seller = AuthClient(SellerTestAuthHandler.TestSeller1);
         var create = await seller.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("T020"), TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var location = create.Headers.Location!.ToString();
@@ -281,7 +281,7 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
 
         // Verify the item is no longer active
         var bySellerResp = await AnonClient().GetAsync(
-            $"/api/catalog/items/by-seller/{TestAuthHandler.TestSeller1}", TestContext.Current.CancellationToken);
+            $"/api/catalog/items/by-seller/{SellerTestAuthHandler.TestSeller1}", TestContext.Current.CancellationToken);
         var result = JsonSerializer.Deserialize<PaginatedItems<CatalogItem>>(
             await bySellerResp.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), _json);
         Assert.DoesNotContain(result!.Data, x => x.Id == id);
@@ -293,12 +293,12 @@ public sealed class SellerListingTests : IClassFixture<SellerCatalogApiFixture>
     [Fact]
     public async Task DeactivateListing_NonOwner_Returns403()
     {
-        var seller1 = AuthClient(TestAuthHandler.TestSeller1);
+        var seller1 = AuthClient(SellerTestAuthHandler.TestSeller1);
         var create = await seller1.PostAsJsonAsync("/api/catalog/items/listings", await ValidListingAsync("T021"), TestContext.Current.CancellationToken);
         var location = create.Headers.Location!.ToString();
         var id = int.Parse(location.Split('/').Last());
 
-        var seller2 = AuthClient(TestAuthHandler.TestSeller2);
+        var seller2 = AuthClient(SellerTestAuthHandler.TestSeller2);
         var response = await seller2.DeleteAsync($"/api/catalog/items/listings/{id}", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);

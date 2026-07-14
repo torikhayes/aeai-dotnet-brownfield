@@ -125,20 +125,24 @@ public static class CatalogApi
             .WithName("UpdateItem")
             .WithSummary("Create or replace a catalog item")
             .WithDescription("Create or replace a catalog item")
-            .WithTags("Items");
+            .WithTags("Items")
+            .RequireAuthorization();
         v2.MapPut("/items/{id:int}", UpdateItem)
             .WithName("UpdateItem-V2")
             .WithSummary("Create or replace a catalog item")
             .WithDescription("Create or replace a catalog item")
-            .WithTags("Items");
+            .WithTags("Items")
+            .RequireAuthorization();
         api.MapPost("/items", CreateItem)
             .WithName("CreateItem")
             .WithSummary("Create a catalog item")
-            .WithDescription("Create a new item in the catalog");
+            .WithDescription("Create a new item in the catalog")
+            .RequireAuthorization();
         api.MapDelete("/items/{id:int}", DeleteItemById)
             .WithName("DeleteItem")
             .WithSummary("Delete catalog item")
-            .WithDescription("Delete the specified catalog item");
+            .WithDescription("Delete the specified catalog item")
+            .RequireAuthorization();
 
         // Seller listing endpoints (Spec 002)
         api.MapPost("/items/listings", CreateSellerListing)
@@ -584,7 +588,7 @@ public static class CatalogApi
         var item = new CatalogItem(product.Name)
         {
             Id = product.Id,
-            SellerId = GetCurrentUserId(httpContext) ?? product.SellerId,
+            SellerId = GetCurrentUserId(httpContext),
             CatalogBrandId = product.CatalogBrandId,
             CatalogTypeId = product.CatalogTypeId,
             Description = product.Description,
