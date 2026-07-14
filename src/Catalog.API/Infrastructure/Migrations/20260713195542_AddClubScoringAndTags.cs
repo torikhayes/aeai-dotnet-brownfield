@@ -33,12 +33,15 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
                 nullable: false,
                 defaultValue: 0);
 
-            migrationBuilder.AddColumn<string>(
+            migrationBuilder.AlterColumn<string>(
                 name: "SellerId",
                 table: "Catalog",
                 type: "character varying(100)",
                 maxLength: 100,
-                nullable: true);
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "text",
+                oldNullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "Tags",
@@ -140,9 +143,15 @@ namespace eShop.Catalog.API.Infrastructure.Migrations
                 name: "RatingCount",
                 table: "Catalog");
 
-            migrationBuilder.DropColumn(
+            migrationBuilder.AlterColumn<string>(
                 name: "SellerId",
-                table: "Catalog");
+                table: "Catalog",
+                type: "text",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "character varying(100)",
+                oldMaxLength: 100,
+                oldNullable: true);
 
             migrationBuilder.DropColumn(
                 name: "Tags",
