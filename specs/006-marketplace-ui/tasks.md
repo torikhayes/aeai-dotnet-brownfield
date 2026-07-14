@@ -77,6 +77,10 @@
 - [X] T019 [P] Ensure page header copy/title sections are set in both new route pages under `src/WebApp/Components/Pages/User/`.
 - [ ] T020 [P] Run e2e specs covering these scenarios and capture pass/fail notes in `specs/006-marketplace-ui/`.
 
+  **Run results (2026-07-14)**: 3 failed, 1 passed (login.setup ✅).
+  - `MyListingsAuthRedirect.spec.ts` ❌ — `ERR_HTTP_RESPONSE_CODE_FAILURE` on `GET /user/my-listings`; Blazor SSR `[Authorize]` returns an error code instead of redirecting to login. Fix: ensure `app.UseAuthentication()` / `app.UseAuthorization()` middleware is configured to redirect (not reject) for non-API routes, or update the test to expect a redirect via `page.waitForNavigation`.
+  - `MyListingsTest.spec.ts` ❌ (both tests) — expects heading `'Welcome to Golf Odyssey'` on `/user/sell-my-club` which does not exist on the page. Fix: update assertion to match the actual page heading (e.g. `'Sell My Club'` or remove the heading check if the page loads without a visible h1).
+
 ---
 
 ## Dependencies and Order
