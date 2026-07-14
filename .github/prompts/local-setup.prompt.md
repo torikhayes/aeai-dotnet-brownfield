@@ -1,7 +1,7 @@
 ---
+mode: "agent"
 description: "Use when a developer asks how to set up, build, or run this project locally on macOS from scratch. Trigger phrases: local setup, getting started, install dependencies, run locally, first time setup, Mac setup, onboarding, dev environment, Colima, containers, Homebrew, dotnet install, Aspire dashboard, common errors."
 tools: [read, search]
-name: "Local Setup Guide"
 argument-hint: "Describe what you're trying to set up or which step you're stuck on."
 ---
 

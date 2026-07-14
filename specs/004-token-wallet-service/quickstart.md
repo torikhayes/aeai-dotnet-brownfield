@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- Local environment set up per `.github/agents/local-setup.agent.md`
+- Local environment set up per `.github/prompts/local-setup.prompt.md`
 - Colima running (`colima status`)
 - .NET 10 SDK (`dotnet --version`)
 

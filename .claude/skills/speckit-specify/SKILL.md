@@ -112,6 +112,7 @@ Given that feature description, do this:
 4. Load `.specify/templates/spec-template.md` to understand required sections.
 
 5. Follow this execution flow:
+    0. **Read project context files**: Before analyzing the feature description, consult `.github/context/eshop-overview.md` for the overall system architecture and service map. Then read the service-specific context files in `.github/context/` most relevant to the described feature (e.g., `.github/context/catalog-api.md` for product/listing features). These files document existing entity names, API conventions, event structures, and system boundaries — use them to ensure the spec uses correct domain terminology and accurately identifies integration points without exploring source code.
     1. Parse user description from arguments
        If empty: ERROR "No feature description provided"
     2. Extract key concepts from description

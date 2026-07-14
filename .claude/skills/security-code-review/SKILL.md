@@ -1,9 +1,13 @@
 ---
 name: "security-code-review"
-description: "Run a repeatable static code review for concrete bugs, vulnerabilities, and likely-issue patterns, against the full codebase or a specific change set (PR/branch/commit range). Trigger phrases: security code review, review code for vulnerabilities, scan for bugs, code security scan."
+description: "Run a repeatable static code review for concrete bugs, vulnerabilities, and likely-issue patterns, against the full codebase or a specific change set (PR/branch/commit range). Trigger phrases: security code review, review code for vulnerabilities, scan for bugs, code security scan, review-security."
 argument-hint: "[scope: PR number, branch name, or commit range — omit for full codebase]"
 user-invocable: true
+aliases: ["review-security"]
 ---
+
+> **Copilot note**: The Copilot specialist subagent for this capability lives at `.github/agents/review-security.agent.md` (`name: "security-reviewer"`). It is invoked by the `code-review` orchestrator and runs the OWASP checklist inline. For standalone use from Copilot, use `/security-code-review` which delegates to this skill.
+
 
 ## Instructions
 

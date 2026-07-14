@@ -7,9 +7,9 @@ user-invocable: true
 
 ## Instructions
 
-Read the full setup guide at `.github/agents/local-setup.agent.md` and follow all instructions, constraints, and known-error resolutions defined there.
+Read the full setup guide at `.github/prompts/local-setup.prompt.md` and follow all instructions, constraints, and known-error resolutions defined there.
 
-The `.github/agents/local-setup.agent.md` file is the single source of truth for local setup guidance and is shared with GitHub Copilot. Do not duplicate its content here.
+The `.github/prompts/local-setup.prompt.md` file is the single source of truth for local setup guidance and is shared with GitHub Copilot. Do not duplicate its content here.
 
 ## User Input
 

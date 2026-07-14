@@ -90,6 +90,7 @@ You **MUST** consider the user input before proceeding (if not empty).
      - Automatically proceed to step 3
 
 3. Load and analyze the implementation context:
+   - **FIRST**: Consult `.github/context/eshop-overview.md` and the service-specific context files in `.github/context/` relevant to this feature (e.g., `.github/context/catalog-api.md`, `.github/context/ordering-api.md`). These pre-generated files document existing architecture, API endpoints, database schemas, integration events, core classes, and file structure for every service. Use them as the primary source of truth before reading source files to avoid redundant discovery and to ensure new code follows established patterns.
    - **REQUIRED**: Read tasks.md for the complete task list and execution plan
    - **REQUIRED**: Read plan.md for tech stack, architecture, and file structure
    - **IF EXISTS**: Read data-model.md for entities and relationships

@@ -58,7 +58,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 1. **Setup**: Run `.specify/scripts/bash/setup-tasks.sh --json` from repo root and parse FEATURE_DIR, TASKS_TEMPLATE, and AVAILABLE_DOCS list. `FEATURE_DIR` and `TASKS_TEMPLATE` must be absolute paths when provided. `AVAILABLE_DOCS` is a list of document names/relative paths available under `FEATURE_DIR` (for example `research.md` or `contracts/`). For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Load design documents**: Read from FEATURE_DIR:
+2. **Load design documents**: Before loading design documents or exploring the codebase, consult the pre-generated project context files in `.github/context/`. Read `.github/context/eshop-overview.md` first (system map, event flow, service directory), then the service-specific context files relevant to this feature (e.g., `.github/context/catalog-api.md`, `.github/context/ordering-api.md`). These files document existing architecture, API endpoints, database schemas, and integration events — use them to ensure generated tasks align with existing patterns and don't duplicate or contradict established structure. Only fall back to direct source file exploration when context files lack the needed detail. Then read from FEATURE_DIR:
    - **Required**: plan.md (tech stack, libraries, structure), spec.md (user stories with priorities)
    - **Optional**: data-model.md (entities), contracts/ (interface contracts), research.md (decisions), quickstart.md (test scenarios)
    - Note: Not all projects have all documents. Generate tasks based on what's available.

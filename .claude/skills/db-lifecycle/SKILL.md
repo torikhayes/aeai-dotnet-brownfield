@@ -7,9 +7,9 @@ user-invocable: true
 
 ## Instructions
 
-Read the full database lifecycle guide at `.github/agents/db-lifecycle.agent.md` and follow all instructions, commands, and known-error resolutions defined there.
+Read the full database lifecycle guide at `.github/prompts/db-lifecycle.prompt.md` and follow all instructions, commands, and known-error resolutions defined there.
 
-The `.github/agents/db-lifecycle.agent.md` file is the single source of truth for database lifecycle operations and is shared with GitHub Copilot. Do not duplicate its content here.
+The `.github/prompts/db-lifecycle.prompt.md` file is the single source of truth for database lifecycle operations and is shared with GitHub Copilot. Do not duplicate its content here.
 
 ## Operations
 
