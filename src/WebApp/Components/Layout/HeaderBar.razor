@@ -3,7 +3,11 @@
 <div class="eshop-header @(IsCatalog? "home" : "")">
     <div class="eshop-header-hero">
         @{
-            var headerImage = IsCatalog ? "images/header-home.svg" : (IsItemPage ? "images/header-item.svg" : "images/header.webp");
+            var headerImage = IsCatalog
+                ? "images/header-home.svg"
+                : (IsItemPage
+                    ? "images/header-item.svg"
+                    : (UseLoginBanner ? "images/login-banner.png" : "images/header.webp"));
         }
         <img role="presentation" src="@headerImage" />
     </div>
@@ -31,4 +35,6 @@
     private Type? PageComponentType => HttpContext?.GetEndpoint()?.Metadata.OfType<ComponentTypeMetadata>().FirstOrDefault()?.Type;
     private bool IsCatalog => PageComponentType == typeof(Pages.Catalog.Catalog);
     private bool IsItemPage => PageComponentType == typeof(Pages.Item.ItemPage);
+    private bool UseLoginBanner =>
+        PageComponentType?.Namespace == typeof(Pages.User.Orders).Namespace;
 }

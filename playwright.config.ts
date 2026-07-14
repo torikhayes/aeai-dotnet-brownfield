@@ -26,6 +26,7 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    channel: 'chrome',
     ...devices['Desktop Chrome'],
   },
 
@@ -85,7 +86,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'dotnet run --project src/eShop.AppHost/eShop.AppHost.csproj',
+    command: 'ESHOP_USE_HTTP_ENDPOINTS=1 dotnet run --project src/eShop.AppHost/eShop.AppHost.csproj',
     url: 'http://localhost:5045',
     ignoreHTTPSErrors: true,
     reuseExistingServer: !process.env.CI,
