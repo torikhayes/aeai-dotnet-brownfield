@@ -4,8 +4,11 @@ using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Asp.Versioning;
 using Asp.Versioning.Http;
-
+using eShop.Catalog.API.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace eShop.Catalog.FunctionalTests;
 
@@ -24,6 +27,19 @@ public class CatalogApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
             .WithImage("ankane/pgvector")
             .WithImageTag("latest");
         _app = appBuilder.Build();
+    }
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        // Replace JWT auth with the test handler so protected endpoints work
+        // without a live Identity.API. Unauthenticated requests still return 401
+        // because CatalogAuthenticationHandler returns NoResult when the header is absent.
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddAuthentication("CatalogTest")
+                .AddScheme<AuthenticationSchemeOptions, CatalogAuthenticationHandler>("CatalogTest", _ => { });
+        });
     }
 
     protected override IHost CreateHost(IHostBuilder builder)

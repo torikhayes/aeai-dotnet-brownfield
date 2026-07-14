@@ -24,6 +24,13 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
         return _webApplicationFactory.CreateDefaultClient(handler);
     }
 
+    private HttpClient CreateAdminClient(ApiVersion apiVersion)
+    {
+        var client = CreateHttpClient(apiVersion);
+        client.DefaultRequestHeaders.Add(TestAuthHandler.HeaderName, "admin-user");
+        return client;
+    }
+
     [Theory]
     [InlineData(1.0)]
     [InlineData(2.0)]
@@ -50,7 +57,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
     [InlineData(2.0)]
     public async Task UpdateCatalogItemWorksWithoutPriceUpdate(double version)
     {
-        var _httpClient = CreateHttpClient(new ApiVersion(version));
+        var _httpClient = CreateAdminClient(new ApiVersion(version));
 
         // Act - 1
         var response = await _httpClient.GetAsync("/api/catalog/items/1", TestContext.Current.CancellationToken);
@@ -85,7 +92,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
     [InlineData(2.0)]
     public async Task UpdateCatalogItemWorksWithPriceUpdate(double version)
     {
-        var _httpClient = CreateHttpClient(new ApiVersion(version));
+        var _httpClient = CreateAdminClient(new ApiVersion(version));
 
         // Act - 1
         var response = await _httpClient.GetAsync("/api/catalog/items/1", TestContext.Current.CancellationToken);
@@ -359,7 +366,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
     [InlineData(2.0)]
     public async Task AddCatalogItem(double version)
     {
-        var _httpClient = CreateHttpClient(new ApiVersion(version));
+        var _httpClient = CreateAdminClient(new ApiVersion(version));
 
         var id = version switch {
             1.0 => 10015,
@@ -401,7 +408,7 @@ public sealed class CatalogApiTests : IClassFixture<CatalogApiFixture>
     [InlineData(2.0)]
     public async Task DeleteCatalogItem(double version)
     {
-        var _httpClient = CreateHttpClient(new ApiVersion(version));
+        var _httpClient = CreateAdminClient(new ApiVersion(version));
 
         var id = version switch {
             1.0 => 5,

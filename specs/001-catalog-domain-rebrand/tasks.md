@@ -75,8 +75,20 @@
 **Purpose**: Regression verification and documentation alignment.
 
 - [X] T014 [P] Run catalog functional regression tests from `tests/Catalog.FunctionalTests/` and capture outcomes for SC-003.
-- [ ] T015 [P] Re-validate quickstart scenarios in `specs/001-catalog-domain-rebrand/quickstart.md` against implemented data/assets.
+- [X] T015 [P] Re-validate quickstart scenarios in `specs/001-catalog-domain-rebrand/quickstart.md` against implemented data/assets — golf catalog types (Driver, Fairway Wood, Hybrid, Iron Set, Putter, Wedge) and brands (Callaway, TaylorMade, Ping, Titleist, Cobra) verified live at `GET /api/catalog/catalogtypes` and `GET /api/catalog/catalogbrands`.
 - [X] T016 Confirm no EF Core migrations were added and no schema files changed under `src/Catalog.API/Infrastructure/Migrations/`.
+
+---
+
+## Phase 6: UI Branding (Beyond Original Scope — SC-001 Compliance)
+
+**Purpose**: Ensure zero AdventureWorks names appear anywhere in the storefront UI, satisfying SC-001.
+
+- [X] T017 Replace hero banner image in `src/WebApp/wwwroot/images/header-home.svg` with golf-themed SVG (fairway, flag, bunker, trees, clouds).
+- [X] T018 Replace `src/WebApp/wwwroot/images/logo-header.svg` with Golf Odyssey golf-ball + flag logo (dark green, `width: 40vw / max-width: 500px`).
+- [X] T019 Replace `src/WebApp/wwwroot/images/logo-footer.svg` with Golf Odyssey golf-ball + flag logo (light colors for dark footer, `width: 200px`).
+- [X] T020 Update banner headline and subtitle in `src/WebApp/Components/Pages/Catalog/Catalog.razor` → "Tee Up. Sell. Score." / "Buy and sell premium golf clubs…"
+- [X] T021 Replace all `AdventureWorks` page titles and footer text across `src/WebApp/Components/` → "Golf Odyssey" (FooterBar, CartPage, Checkout, ItemPage, Orders, Catalog).
 
 ---
 

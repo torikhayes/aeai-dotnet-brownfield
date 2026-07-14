@@ -23,10 +23,6 @@ public static class Extensions
             return;
         }
 
-        builder.Services.AddAuthentication("CatalogTest")
-            .AddScheme<AuthenticationSchemeOptions, CatalogAuthenticationHandler>("CatalogTest", _ => { });
-        builder.Services.AddAuthorization();
-
         builder.AddNpgsqlDbContext<CatalogContext>("catalogdb", configureDbContextOptions: dbContextOptionsBuilder =>
         {
             dbContextOptionsBuilder.UseNpgsql(builder =>
