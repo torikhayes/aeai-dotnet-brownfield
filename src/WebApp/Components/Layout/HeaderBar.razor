@@ -1,9 +1,9 @@
 ﻿@using Microsoft.AspNetCore.Components.Endpoints
 
-<div class="eshop-header @(IsCatalog? "home" : "")">
+<div class="eshop-header @(IsCatalog? "" : "")">
     <div class="eshop-header-hero">
         @{
-            var headerImage = IsCatalog ? "images/header-home.svg" : (IsItemPage ? "images/header-item.svg" : "images/header.webp");
+            var headerImage = IsCatalog ? "images/header-home.svg" : (IsItemPage ? "images/header-item.svg" : "images/header-home.svg");
         }
         <img role="presentation" src="@headerImage" />
     </div>
@@ -18,7 +18,6 @@
         </nav>
         <div class="eshop-header-intro">
             <h1><SectionOutlet SectionName="page-header-title" /></h1>
-            <p><SectionOutlet SectionName="page-header-subtitle" /></p>
         </div>
     </div>
 </div>

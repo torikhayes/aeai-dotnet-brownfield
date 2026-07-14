@@ -141,17 +141,6 @@ body {
     padding: 3rem;
 }
 
-.eshop-banner {
-    display: flex;
-    justify-content: center;
-}
-
-.eshop-banner img {
-    position: absolute;
-    width: 100%;
-    max-width: 1920px;
-}
-
 .eshop-header {
     position: relative;
     max-width: 120rem;
@@ -159,11 +148,12 @@ body {
 }
 
 .eshop-header.home .eshop-header-container {
-    height: 38rem;
+    height: 14rem;
     margin-bottom: 0;
 }
 
 .eshop-header .eshop-header-container {
+    height: 25rem;
     margin-bottom: 4rem;
 }
 
@@ -185,6 +175,7 @@ body {
     position: absolute;
     max-width: 48rem;
     bottom: 3rem;
+    white-space: nowrap;
 }
 
 .eshop-header-intro h1 {
@@ -208,13 +199,15 @@ body {
 .eshop-header .logo-header {
     color: black;
     margin-right: auto;
+    max-width: 500px;
+    min-width: 200px;
 }
 
 .eshop-header-navbar {
     display: flex;
     flex-direction: row;
     justify-content: flex-end;
-    align-items: baseline;
+    align-items: center;
     margin-top: 1.25rem;
     gap: 1.5rem;
 }
@@ -235,33 +228,177 @@ body {
     color: white;
     display: flex;
     justify-content: flex-end;
-    align-items: baseline;
+    align-items: center;
 }
 
 .eshop-footer .logo-footer {
     color: white;
     margin-right: auto;
+    width: 200px;
+    height: auto;
+}
+
+@media only screen and (max-width: 480px) {
+    .eshop-header-hero {
+        height: 18rem;
+    }
+
+    .eshop-header-hero img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .eshop-header .eshop-header-container {
+        height: 15rem;
+        margin-bottom: 4rem;
+    }
+
+    .eshop-header-container {
+        margin: 0 1rem;
+    }
+
+    .eshop-header.home .eshop-header-container {
+        height: 12rem;
+        margin: 0 1rem;
+    }
+
+    .eshop-header-intro {
+        white-space: wrap;
+        bottom: 0;
+    }
+
+    .eshop-header-intro h1 {
+        font-size: 2rem;
+    }
+
+    .eshop-header-intro p {
+        font-size: 1.5rem;
+    }
+
+    .eshop-footer-row {
+        padding: 3.5rem 1rem;
+    }
+
+    .login-page {
+        margin-top: 0;
+    }
+
+    .login-page .container {
+        padding: 0 1rem;
+    }
+
+    .login-container {
+        margin-bottom: 3rem;
+        padding: 1.5rem;
+    }
+
+    .login-container h2 {
+        font-size: 2rem;
+        line-height: 100%;
+    }
+}
+
+@media only screen and (min-width: 481px) and (max-width: 1024px) {
+    .eshop-header.home .eshop-header-hero {
+        height: 24rem;
+    }
+
+    .eshop-header .eshop-header-hero {
+        height: 15rem;
+    }
+
+    .eshop-header-hero img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .eshop-header-container {
+        margin: 0 3rem;
+    }
+
+    .eshop-header.home .eshop-header-container {
+        height: 13rem;
+        margin: 0 3rem;
+    }
+
+    .eshop-header-intro {
+        white-space: wrap;
+    }
+
+    .eshop-header-intro h1 {
+        font-size: 2rem;
+    }
+
+    .eshop-header-intro p {
+        font-size: 1.5rem;
+    }
+
+    .eshop-footer-row {
+        padding: 3.5rem 3rem;
+    }
+
+    .login-page {
+        margin-top: -4rem;
+    }
+
+    .login-page .container {
+        padding: 0 3rem;
+    }
+
+    .login-container h2 {
+        font-size: 2rem;
+        line-height: 100%;
+    }
 }
 
 .login-container {
     position: relative;
     display: flex;
-    padding: 40px;
+    max-width: 42rem;
+    margin: 0 auto 5rem auto;
+    padding: 3rem;
     flex-direction: column;
     justify-content: flex-end;
-    gap: 20px;
+    gap: 1.25rem;
     flex: 1 0 0;
     align-self: stretch;
     background: #FFF;
     box-shadow: 0px 3.38082px 3.38082px 0px rgba(0, 0, 0, 0.01), 0px 27px 27px 0px rgba(0, 0, 0, 0.03);
 }
 
+.login-page {
+    margin-top: -7rem;
+    position: relative;
+    z-index: 1;
+}
+
+.login-page .container {
+    max-width: 120rem;
+    padding: 0 10rem;
+}
+
+.login-page .row.top-buffer {
+    justify-content: center;
+}
+
 .login-container h2 {
     color: #000;
-    font-size: 36px;
+    font-size: 3rem;
     font-style: normal;
     font-weight: 700;
-    line-height: 48px; 
+    line-height: 100%;
+    margin: 0;
+}
+
+.login-container p {
+    margin: 0;
+    color: #444;
+    font-size: 1rem;
+    line-height: 150%;
 }
 
 .login-container label {
@@ -313,14 +450,14 @@ body {
     align-items: flex-end;
     gap: 8px;
     align-self: stretch;
-    background: #00857D;
-    border-color: #00857D;
+    background: #2E7D32;
+    border-color: #2E7D32;
     font-weight: 600;
 }
 
 .login-container .btn.btn-primary:hover {
-    background: #006B66;
-    border-color: #006B66;
+    background: #1B5E20;
+    border-color: #1B5E20;
 }
 
 .icon {
