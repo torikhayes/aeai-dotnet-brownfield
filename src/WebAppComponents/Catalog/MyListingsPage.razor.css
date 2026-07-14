@@ -1,0 +1,86 @@
+.my-listings-empty {
+  border: 1px dashed #b8b8b8;
+  padding: 1.25rem;
+  max-width: 30rem;
+}
+
+.my-listings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.listing-card {
+  border: 1px solid #d8d8d8;
+  background: #fff;
+}
+
+.listing-card img {
+  width: 100%;
+  height: 12rem;
+  object-fit: cover;
+  border-bottom: 1px solid #d8d8d8;
+}
+
+.listing-content {
+  padding: 1rem;
+}
+
+.listing-content h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.listing-content p {
+  margin-top: 0.25rem;
+  margin-bottom: 0.9rem;
+  color: #4a4a4a;
+}
+
+.listing-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.label {
+  color: #5a5a5a;
+}
+
+.status {
+  font-size: 0.8rem;
+  border-radius: 1rem;
+  border: 1px solid;
+  padding: 0.2rem 0.6rem;
+}
+
+.status.active {
+  color: #137300;
+  border-color: #137300;
+}
+
+.status.sold {
+  color: #a10f0f;
+  border-color: #a10f0f;
+}
+
+.listing-metrics {
+  border-top: 1px solid #eee;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  color: #424242;
+  font-size: 0.9rem;
+}
+
+.load-error {
+  color: #a10f0f;
+}
+
+@media only screen and (max-width: 1024px) {
+  .my-listings-grid {
+    grid-template-columns: 1fr;
+  }
+}

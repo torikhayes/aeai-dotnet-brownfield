@@ -1,0 +1,81 @@
+@inject CatalogService CatalogService
+@inject IProductImageUrlProvider ProductImages
+
+@if (isLoading)
+{
+    <p>Loading your listings...</p>
+}
+else if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <p class="load-error">@loadError</p>
+}
+else if (listings.Count == 0)
+{
+    <div class="my-listings-empty">
+        <p>You have not listed any clubs yet.</p>
+        <a class="button button-primary" href="/user/sell-my-club">List your first club</a>
+    </div>
+}
+else
+{
+    <div class="my-listings-grid">
+        @foreach (var item in listings)
+        {
+            <article class="listing-card">
+                <img alt="@item.Name" src="@ProductImages.GetProductImageUrl(item)" />
+                <div class="listing-content">
+                    <h3>@item.Name</h3>
+                    <p>@item.CatalogBrand?.Brand @item.CatalogType?.Type</p>
+                    <div class="listing-row">
+                        <span class="label">Status</span>
+                        <span class="status @(item.AvailableStock > 0 ? "active" : "sold")">
+                            @(item.AvailableStock > 0 ? "Active" : "Sold")
+                        </span>
+                    </div>
+                    <div class="listing-row">
+                        <span class="label">Price</span>
+                        <span>$@item.Price.ToString("0.00")</span>
+                    </div>
+                    <div class="listing-row">
+                        <span class="label">Token price</span>
+                        <span>@GetTokenPriceLabel(item)</span>
+                    </div>
+                    <div class="listing-metrics">
+                        <span>@item.ViewCount views</span>
+                        <span>@item.FavoriteCount favorites</span>
+                        <span>@item.AverageRating.ToString("0.0") rating</span>
+                    </div>
+                </div>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int PageSize { get; set; } = 50;
+
+    private List<CatalogItem> listings = [];
+    private bool isLoading = true;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await CatalogService.GetMyListings(0, PageSize);
+            listings = result.Data;
+        }
+        catch
+        {
+            loadError = "We could not load your listings right now. Please refresh and try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string GetTokenPriceLabel(CatalogItem item)
+        => item.TokenPrice.HasValue ? $"{item.TokenPrice.Value:0} tokens" : "Verification pending";
+}

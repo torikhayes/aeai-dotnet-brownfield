@@ -1,0 +1,15 @@
+.my-listings-page {
+  padding: 0 10rem;
+}
+
+@media only screen and (max-width: 480px) {
+  .my-listings-page {
+    padding: 0 1rem;
+  }
+}
+
+@media only screen and (min-width: 481px) and (max-width: 1024px) {
+  .my-listings-page {
+    padding: 0 3rem;
+  }
+}
