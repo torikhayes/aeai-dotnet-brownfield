@@ -1,7 +1,7 @@
 ---
+mode: "agent"
 description: "Use when a developer needs to check migration status, run migrations, seed data, or start the application. Trigger phrases: migration status, run migrations, apply migrations, seed database, seed data, start app, run app, pending migrations, EF migrations, database setup, db lifecycle."
 tools: [run_in_terminal, read]
-name: "DB Lifecycle"
 argument-hint: "Describe which operation you want: check-status, run-migrations, seed-data, or run-app."
 ---
 
