@@ -1,5 +1,7 @@
 ﻿namespace eShop.Ordering.API.Application.Commands;
 
+using eShop.Ordering.API.Application.Services;
+
 /// <summary>
 /// Provides a base implementation for handling duplicate request and ensuring idempotent updates, in the cases where
 /// a requestid sent by client is used to detect duplicate requests.
@@ -95,6 +97,14 @@ public abstract class IdentifiedCommandHandler<T, R> : IRequestHandler<Identifie
                     command);
 
                 return result;
+            }
+            catch (InsufficientTokenBalanceException)
+            {
+                throw;
+            }
+            catch (TokenServiceUnavailableException)
+            {
+                throw;
             }
             catch
             {

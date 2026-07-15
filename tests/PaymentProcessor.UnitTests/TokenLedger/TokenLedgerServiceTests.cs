@@ -354,6 +354,24 @@ public class TokenLedgerServiceTests
         Assert.AreEqual(70, wallet!.Balance); // not debited twice
     }
 
+    [TestMethod]
+    public async Task SpendTokens_CheckoutDebit_OrderIdIsIdempotent()
+    {
+        using var db = CreateDb(nameof(SpendTokens_CheckoutDebit_OrderIdIsIdempotent));
+        db.TokenWallets.Add(new TokenWallet { UserId = "buyer", Balance = 200 });
+        await db.SaveChangesAsync();
+        var svc = CreateService(db);
+
+        var first = await svc.SpendTokens("buyer", 90, "checkout-order-1");
+        var second = await svc.SpendTokens("buyer", 90, "checkout-order-1");
+
+        Assert.AreEqual(TokenLedgerService.SpendResult.Success, first.result);
+        Assert.AreEqual(TokenLedgerService.SpendResult.AlreadyProcessed, second.result);
+        var wallet = await db.TokenWallets.FindAsync("buyer");
+        Assert.AreEqual(110, wallet!.Balance);
+        Assert.AreEqual(1, await db.TokenTransactions.CountAsync(t => t.RelatedEventId == "checkout-order-1"));
+    }
+
     // T029(d): concurrent debit triggers RowVersion retry
     [TestMethod]
     public async Task SpendTokens_ConcurrencyException_Retries()
@@ -433,6 +451,22 @@ public class TokenLedgerServiceTests
             Arg.Any<object>(),
             null,
             Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [TestMethod]
+    public async Task RefundTokens_DuplicateOrderId_IsIdempotent()
+    {
+        using var db = CreateDb(nameof(RefundTokens_DuplicateOrderId_IsIdempotent));
+        db.TokenWallets.Add(new TokenWallet { UserId = "buyer", Balance = 10 });
+        await db.SaveChangesAsync();
+
+        var svc = CreateService(db);
+        await svc.RefundTokens("buyer", 90, "checkout-order-2", "order_persistence_failed");
+        await svc.RefundTokens("buyer", 90, "checkout-order-2", "order_persistence_failed");
+
+        var wallet = await db.TokenWallets.FindAsync("buyer");
+        Assert.AreEqual(100, wallet!.Balance);
+        Assert.AreEqual(1, await db.TokenTransactions.CountAsync(t => t.RelatedEventId == "refund:checkout-order-2"));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

@@ -10,11 +10,18 @@ service Basket {
     rpc DeleteBasket(DeleteBasketRequest) returns (DeleteBasketResponse) {}
 }
 
+enum PaymentMethod {
+    PAYMENT_METHOD_UNSPECIFIED = 0;
+    PAYMENT_METHOD_CASH = 1;
+    PAYMENT_METHOD_TOKENS = 2;
+}
+
 message GetBasketRequest {
 }
 
 message CustomerBasketResponse {
     repeated BasketItem items = 1;
+    PaymentMethod payment_method = 2;
 }
 
 message BasketItem {
@@ -24,6 +31,7 @@ message BasketItem {
 
 message UpdateBasketRequest {
     repeated BasketItem items = 2;
+    PaymentMethod payment_method = 3;
 }
 
 message DeleteBasketRequest {

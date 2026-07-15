@@ -77,6 +77,11 @@ public class BasketService(
     private static CustomerBasketResponse MapToCustomerBasketResponse(CustomerBasket customerBasket)
     {
         var response = new CustomerBasketResponse();
+        response.PaymentMethod = customerBasket.PaymentMethod switch
+        {
+            BasketPaymentMethod.Tokens => PaymentMethod.Tokens,
+            _ => PaymentMethod.Cash,
+        };
 
         foreach (var item in customerBasket.Items)
         {
@@ -94,7 +99,12 @@ public class BasketService(
     {
         var response = new CustomerBasket
         {
-            BuyerId = userId
+            BuyerId = userId,
+            PaymentMethod = customerBasketRequest.PaymentMethod switch
+            {
+                PaymentMethod.Tokens => BasketPaymentMethod.Tokens,
+                _ => BasketPaymentMethod.Cash,
+            }
         };
 
         foreach (var item in customerBasketRequest.Items)

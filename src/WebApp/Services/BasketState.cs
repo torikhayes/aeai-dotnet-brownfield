@@ -82,6 +82,9 @@ public class BasketState(
             checkoutInfo.RequestId = Guid.NewGuid();
         }
 
+        var existingItems = (await FetchBasketItemsAsync()).Select(i => new BasketQuantity(i.ProductId, i.Quantity)).ToList();
+        await basketService.UpdateBasketAsync(existingItems, checkoutInfo.PaymentMethod);
+
         var buyerId = await authenticationStateProvider.GetBuyerIdAsync() ?? throw new InvalidOperationException("User does not have a buyer ID");
         var userName = await authenticationStateProvider.GetUserNameAsync() ?? throw new InvalidOperationException("User does not have a user name");
 
@@ -103,7 +106,8 @@ public class BasketState(
             CardSecurityNumber: "111",
             CardTypeId: checkoutInfo.CardTypeId,
             Buyer: buyerId,
-            Items: [.. orderItems]);
+            Items: [.. orderItems],
+            PaymentMethod: checkoutInfo.PaymentMethod);
         await orderingService.CreateOrder(request, checkoutInfo.RequestId);
         await DeleteBasketAsync();
     }
@@ -169,4 +173,5 @@ public record CreateOrderRequest(
     string CardSecurityNumber,
     int CardTypeId,
     string Buyer,
-    List<BasketItem> Items);
+    List<BasketItem> Items,
+    CheckoutPaymentMethod PaymentMethod = CheckoutPaymentMethod.Cash);

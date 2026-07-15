@@ -2,6 +2,12 @@
 
 namespace eShop.WebApp.Services;
 
+public enum CheckoutPaymentMethod
+{
+    Cash = 0,
+    Tokens = 1
+}
+
 public class BasketCheckoutInfo
 {
     [Required]
@@ -31,4 +37,5 @@ public class BasketCheckoutInfo
 
     public string? Buyer { get; set; }
     public Guid RequestId { get; set; }
+    public CheckoutPaymentMethod PaymentMethod { get; set; } = CheckoutPaymentMethod.Cash;
 }

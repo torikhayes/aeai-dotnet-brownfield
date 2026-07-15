@@ -11,6 +11,7 @@
 
 using eShop.Ordering.API.Application.Models;
 using eShop.Ordering.API.Extensions;
+using eShop.Ordering.Domain.AggregatesModel.OrderAggregate;
 
 [DataContract]
 public class CreateOrderCommand
@@ -56,6 +57,9 @@ public class CreateOrderCommand
     public int CardTypeId { get; private set; }
 
     [DataMember]
+    public OrderPaymentMethod PaymentMethod { get; private set; }
+
+    [DataMember]
     public IEnumerable<OrderItemDTO> OrderItems => _orderItems;
 
     public CreateOrderCommand()
@@ -65,7 +69,8 @@ public class CreateOrderCommand
 
     public CreateOrderCommand(List<BasketItem> basketItems, string userId, string userName, string city, string street, string state, string country, string zipcode,
         string cardNumber, string cardHolderName, DateTime cardExpiration,
-        string cardSecurityNumber, int cardTypeId)
+        string cardSecurityNumber, int cardTypeId,
+        OrderPaymentMethod paymentMethod = OrderPaymentMethod.Cash)
     {
         _orderItems = basketItems.ToOrderItemsDTO().ToList();
         UserId = userId;
@@ -80,6 +85,7 @@ public class CreateOrderCommand
         CardExpiration = cardExpiration;
         CardSecurityNumber = cardSecurityNumber;
         CardTypeId = cardTypeId;
+        PaymentMethod = paymentMethod;
     }
 }
 

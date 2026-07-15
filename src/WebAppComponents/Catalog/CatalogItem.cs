@@ -19,7 +19,10 @@ public record CatalogItem(
     string? SellerId = null,
     string? Condition = null,
     int? ManufactureYear = null,
-    string? PhotoUrls = null);
+    string? PhotoUrls = null)
+{
+    public bool IsTokenCheckoutAvailable => TokenPrice is > 0;
+}
 
 public record CatalogResult(int PageIndex, int PageSize, int Count, List<CatalogItem> Data);
 public record CatalogBrand(int Id, string Brand);

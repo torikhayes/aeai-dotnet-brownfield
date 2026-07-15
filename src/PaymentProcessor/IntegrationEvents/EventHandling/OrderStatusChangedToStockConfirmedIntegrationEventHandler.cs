@@ -18,7 +18,11 @@ public class OrderStatusChangedToStockConfirmedIntegrationEventHandler(
         // Instead of a real payment we just take the env. var to simulate the payment 
         // The payment can be successful or it can fail
 
-        if (options.CurrentValue.PaymentSucceeded)
+        if (string.Equals(@event.PaymentMethod, "Tokens", StringComparison.OrdinalIgnoreCase))
+        {
+            orderPaymentIntegrationEvent = new OrderPaymentSucceededIntegrationEvent(@event.OrderId);
+        }
+        else if (options.CurrentValue.PaymentSucceeded)
         {
             orderPaymentIntegrationEvent = new OrderPaymentSucceededIntegrationEvent(@event.OrderId);
         }

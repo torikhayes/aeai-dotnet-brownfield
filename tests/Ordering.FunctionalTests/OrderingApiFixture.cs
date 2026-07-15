@@ -3,6 +3,9 @@ using Aspire.Hosting.ApplicationModel;
 
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using eShop.Ordering.API.Application.IntegrationEvents;
+using eShop.Ordering.API.Application.Services;
 
 namespace eShop.Ordering.FunctionalTests;
 
@@ -15,6 +18,7 @@ public sealed class OrderingApiFixture : WebApplicationFactory<Program>, IAsyncL
     public IResourceBuilder<ProjectResource> IdentityApi { get; private set; }
 
     private string _postgresConnectionString;
+    public FakeTokenSpendClient FakeTokenSpendClient { get; } = new();
 
     public OrderingApiFixture()
     {
@@ -38,6 +42,10 @@ public sealed class OrderingApiFixture : WebApplicationFactory<Program>, IAsyncL
         });
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<ITokenSpendClient>();
+            services.AddSingleton<ITokenSpendClient>(FakeTokenSpendClient);
+            services.RemoveAll<IOrderingIntegrationEventService>();
+            services.AddSingleton<IOrderingIntegrationEventService, NoOpOrderingIntegrationEventService>();
             services.AddSingleton<IStartupFilter>(new AutoAuthorizeStartupFilter());
         });
         return base.CreateHost(builder);

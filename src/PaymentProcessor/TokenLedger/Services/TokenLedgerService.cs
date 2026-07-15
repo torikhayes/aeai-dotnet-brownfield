@@ -232,4 +232,55 @@ public class TokenLedgerService(
                      && e.EffectiveFrom <= DateTime.UtcNow)
             .OrderByDescending(e => e.EffectiveFrom)
             .FirstOrDefaultAsync();
+
+    public async Task RefundTokens(string userId, int amount, string orderId, string reason)
+    {
+        if (amount <= 0)
+        {
+            return;
+        }
+
+        var relatedEventId = $"refund:{orderId}";
+        if (await db.TokenTransactions.AnyAsync(t => t.RelatedEventId == relatedEventId))
+        {
+            return;
+        }
+
+        var maxRetries = options.CurrentValue.MaxConcurrencyRetries;
+
+        for (int attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                var wallet = await db.TokenWallets.FindAsync(userId);
+                if (wallet is null)
+                {
+                    wallet = new TokenWallet { UserId = userId, Balance = 0 };
+                    db.TokenWallets.Add(wallet);
+                }
+
+                wallet.Balance += amount;
+
+                db.TokenTransactions.Add(new TokenTransaction
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Amount = amount,
+                    Reason = $"refund:{reason}",
+                    RelatedEventId = relatedEventId,
+                    CreatedAt = DateTime.UtcNow,
+                });
+
+                await db.SaveChangesAsync();
+                return;
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < maxRetries - 1)
+            {
+                foreach (var entry in db.ChangeTracker.Entries())
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
+        }
+    }
 }

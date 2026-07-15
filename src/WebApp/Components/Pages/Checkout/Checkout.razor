@@ -51,6 +51,19 @@
                 </div>
             </div>
             <div class="form-section">
+                <h2>Payment method</h2>
+                <label>
+                    <InputRadioGroup @bind-Value="@Info.PaymentMethod">
+                        <div>
+                            <InputRadio Value="@CheckoutPaymentMethod.Cash" /> Pay with Cash
+                        </div>
+                        <div>
+                            <InputRadio Value="@CheckoutPaymentMethod.Tokens" /> Pay with Tokens
+                        </div>
+                    </InputRadioGroup>
+                </label>
+            </div>
+            <div class="form-section">
                 <div class="form-buttons">
                     <a href="cart" class="button button-secondary"><img role="presentation" src="icons/arrow-left.svg" />Back to the shopping bag</a>
                     <button class="button button-primary" type="submit">Place order</button>

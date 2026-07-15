@@ -1,4 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
+using eShop.Ordering.API.Application.Models;
+using eShop.Ordering.API.Application.Services;
+using eShop.Ordering.Domain.AggregatesModel.OrderAggregate;
 using CardType = eShop.Ordering.API.Application.Queries.CardType;
 using Order = eShop.Ordering.API.Application.Queries.Order;
 
@@ -115,7 +118,7 @@ public static class OrdersApi
         return await services.Mediator.Send(command);
     }
 
-    public static async Task<Results<Ok, BadRequest<string>>> CreateOrderAsync(
+    public static async Task<Results<Ok, BadRequest<string>, ProblemHttpResult>> CreateOrderAsync(
         [FromHeader(Name = "x-requestid")] Guid requestId,
         CreateOrderRequest request,
         [AsParameters] OrderServices services)
@@ -141,7 +144,11 @@ public static class OrdersApi
             var createOrderCommand = new CreateOrderCommand(request.Items, request.UserId, request.UserName, request.City, request.Street,
                 request.State, request.Country, request.ZipCode,
                 maskedCCNumber, request.CardHolderName, request.CardExpiration,
-                request.CardSecurityNumber, request.CardTypeId);
+                request.CardSecurityNumber, request.CardTypeId, request.PaymentMethod switch
+                {
+                    CheckoutPaymentMethod.Tokens => OrderPaymentMethod.Tokens,
+                    _ => OrderPaymentMethod.Cash,
+                });
 
             var requestCreateOrder = new IdentifiedCommand<CreateOrderCommand, bool>(createOrderCommand, requestId);
 
@@ -152,7 +159,19 @@ public static class OrdersApi
                 requestCreateOrder.Id,
                 requestCreateOrder);
 
-            var result = await services.Mediator.Send(requestCreateOrder);
+            bool result;
+            try
+            {
+                result = await services.Mediator.Send(requestCreateOrder);
+            }
+            catch (InsufficientTokenBalanceException)
+            {
+                return TypedResults.BadRequest("insufficient_balance");
+            }
+            catch (TokenServiceUnavailableException)
+            {
+                return TypedResults.Problem(detail: "token_service_unavailable", statusCode: 503);
+            }
 
             if (result)
             {
@@ -161,6 +180,7 @@ public static class OrdersApi
             else
             {
                 services.Logger.LogWarning("CreateOrderCommand failed - RequestId: {RequestId}", requestId);
+                return TypedResults.BadRequest("order_create_failed");
             }
 
             return TypedResults.Ok();
@@ -182,4 +202,5 @@ public record CreateOrderRequest(
     string CardSecurityNumber,
     int CardTypeId,
     string Buyer,
-    List<BasketItem> Items);
+    List<BasketItem> Items,
+    CheckoutPaymentMethod PaymentMethod = CheckoutPaymentMethod.Cash);

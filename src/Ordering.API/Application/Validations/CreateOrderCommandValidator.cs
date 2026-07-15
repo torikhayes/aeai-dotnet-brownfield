@@ -1,4 +1,7 @@
 ﻿namespace eShop.Ordering.API.Application.Validations;
+
+using eShop.Ordering.Domain.AggregatesModel.OrderAggregate;
+
 public class CreateOrderCommandValidator : AbstractValidator<CreateOrderCommand>
 {
     public CreateOrderCommandValidator(ILogger<CreateOrderCommandValidator> logger)
@@ -8,11 +11,25 @@ public class CreateOrderCommandValidator : AbstractValidator<CreateOrderCommand>
         RuleFor(command => command.State).NotEmpty();
         RuleFor(command => command.Country).NotEmpty();
         RuleFor(command => command.ZipCode).NotEmpty();
-        RuleFor(command => command.CardNumber).NotEmpty().Length(12, 19);
-        RuleFor(command => command.CardHolderName).NotEmpty();
-        RuleFor(command => command.CardExpiration).NotEmpty().Must(BeValidExpirationDate).WithMessage("Please specify a valid card expiration date");
-        RuleFor(command => command.CardSecurityNumber).NotEmpty().Length(3);
-        RuleFor(command => command.CardTypeId).NotEmpty();
+        RuleFor(command => command.CardNumber)
+            .NotEmpty()
+            .Length(12, 19)
+            .When(command => command.PaymentMethod == OrderPaymentMethod.Cash);
+        RuleFor(command => command.CardHolderName)
+            .NotEmpty()
+            .When(command => command.PaymentMethod == OrderPaymentMethod.Cash);
+        RuleFor(command => command.CardExpiration)
+            .NotEmpty()
+            .Must(BeValidExpirationDate)
+            .WithMessage("Please specify a valid card expiration date")
+            .When(command => command.PaymentMethod == OrderPaymentMethod.Cash);
+        RuleFor(command => command.CardSecurityNumber)
+            .NotEmpty()
+            .Length(3)
+            .When(command => command.PaymentMethod == OrderPaymentMethod.Cash);
+        RuleFor(command => command.CardTypeId)
+            .NotEmpty()
+            .When(command => command.PaymentMethod == OrderPaymentMethod.Cash);
         RuleFor(command => command.OrderItems).Must(ContainOrderItems).WithMessage("No order items found");
 
         if (logger.IsEnabled(LogLevel.Trace))

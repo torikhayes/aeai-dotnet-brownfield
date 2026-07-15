@@ -10,6 +10,7 @@ public class NewOrderRequestHandlerTest
     private readonly IIdentityService _identityServiceMock;
     private readonly IMediator _mediator;
     private readonly IOrderingIntegrationEventService _orderingIntegrationEventService;
+    private readonly ITokenSpendClient _tokenSpendClient;
 
     public NewOrderRequestHandlerTest()
     {
@@ -18,6 +19,7 @@ public class NewOrderRequestHandlerTest
         _identityServiceMock = Substitute.For<IIdentityService>();
         _orderingIntegrationEventService = Substitute.For<IOrderingIntegrationEventService>();
         _mediator = Substitute.For<IMediator>();
+        _tokenSpendClient = Substitute.For<ITokenSpendClient>();
     }
 
     [TestMethod]
@@ -38,7 +40,7 @@ public class NewOrderRequestHandlerTest
 
         var LoggerMock = Substitute.For<ILogger<CreateOrderCommandHandler>>();
         //Act
-        var handler = new CreateOrderCommandHandler(_mediator, _orderingIntegrationEventService, _orderRepositoryMock, _identityServiceMock, LoggerMock);
+        var handler = new CreateOrderCommandHandler(_mediator, _orderingIntegrationEventService, _orderRepositoryMock, _identityServiceMock, _tokenSpendClient, LoggerMock);
         var cltToken = new CancellationToken();
         var result = await handler.Handle(fakeOrderCmd, cltToken);
 

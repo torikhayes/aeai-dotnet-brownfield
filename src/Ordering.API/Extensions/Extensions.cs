@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using eShop.Ordering.API.Application.Services;
 
 internal static class Extensions
 {
@@ -30,6 +31,7 @@ internal static class Extensions
 
         services.AddHttpContextAccessor();
         services.AddTransient<IIdentityService, IdentityService>();
+        services.AddHttpClient<ITokenSpendClient, TokenSpendClient>(o => o.BaseAddress = new("https+http://payment-processor"));
 
         // Configure mediatR
         services.AddMediatR(cfg =>

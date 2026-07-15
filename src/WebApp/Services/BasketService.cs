@@ -17,9 +17,14 @@ public class BasketService(GrpcBasketClient basketClient)
         await basketClient.DeleteBasketAsync(new DeleteBasketRequest());
     }
 
-    public async Task UpdateBasketAsync(IReadOnlyCollection<BasketQuantity> basket)
+    public async Task UpdateBasketAsync(IReadOnlyCollection<BasketQuantity> basket, CheckoutPaymentMethod paymentMethod = CheckoutPaymentMethod.Cash)
     {
         var updatePayload = new UpdateBasketRequest();
+        updatePayload.PaymentMethod = paymentMethod switch
+        {
+            CheckoutPaymentMethod.Tokens => PaymentMethod.Tokens,
+            _ => PaymentMethod.Cash,
+        };
 
         foreach (var item in basket)
         {

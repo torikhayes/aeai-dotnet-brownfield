@@ -10,6 +10,7 @@ builder.AddDefaultAuthentication();
 
 builder.AddRabbitMqEventBus("EventBus")
     .AddSubscription<OrderStatusChangedToStockConfirmedIntegrationEvent, OrderStatusChangedToStockConfirmedIntegrationEventHandler>()
+    .AddSubscription<OrderCreationFailedIntegrationEvent, OrderCreationFailedIntegrationEventHandler>()
     .AddSubscription<ClubListingVerifiedIntegrationEvent, ClubListingVerifiedIntegrationEventHandler>();
 
 builder.Services.AddOptions<PaymentOptions>()

@@ -21,6 +21,15 @@ class OrderEntityTypeConfiguration : IEntityTypeConfiguration<Order>
             .HasMaxLength(30);
 
         orderConfiguration
+            .Property(o => o.PaymentMethod)
+            .HasConversion<int>()
+            .HasDefaultValue(OrderPaymentMethod.Cash);
+
+        orderConfiguration
+            .Property(o => o.TokensApplied)
+            .HasDefaultValue(0);
+
+        orderConfiguration
             .Property(o => o.PaymentId)
             .HasColumnName("PaymentMethodId");
 

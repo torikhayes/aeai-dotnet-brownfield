@@ -34,6 +34,10 @@ public class Order
 
     public int? PaymentId { get; private set; }
 
+    public OrderPaymentMethod PaymentMethod { get; private set; } = OrderPaymentMethod.Cash;
+
+    public int TokensApplied { get; private set; } = 0;
+
     public static Order NewDraft()
     {
         var order = new Order
@@ -50,10 +54,13 @@ public class Order
     }
 
     public Order(string userId, string userName, Address address, int cardTypeId, string cardNumber, string cardSecurityNumber,
-            string cardHolderName, DateTime cardExpiration, int? buyerId = null, int? paymentMethodId = null) : this()
+            string cardHolderName, DateTime cardExpiration, int? buyerId = null, int? paymentMethodId = null,
+            OrderPaymentMethod orderPaymentMethod = OrderPaymentMethod.Cash, int tokensApplied = 0) : this()
     {
         BuyerId = buyerId;
         PaymentId = paymentMethodId;
+        PaymentMethod = orderPaymentMethod;
+        TokensApplied = tokensApplied;
         OrderStatus = OrderStatus.Submitted;
         OrderDate = DateTime.UtcNow;
         Address = address;

@@ -85,6 +85,12 @@ internal static class TokensApi
             TokenLedgerService service,
             SpendRequest body) =>
         {
+            var internalCaller = context.Request.Headers.TryGetValue("X-Internal-Client", out var internalClient)
+                && string.Equals(internalClient.ToString(), "ordering-api", StringComparison.OrdinalIgnoreCase);
+
+            if (!internalCaller && context.User.Identity?.IsAuthenticated != true)
+                return Results.Unauthorized();
+
             if (string.IsNullOrWhiteSpace(body.UserId) || string.IsNullOrWhiteSpace(body.OrderId))
                 return Results.BadRequest(new { error = "validation_error", detail = "userId and orderId are required." });
 
@@ -107,7 +113,7 @@ internal static class TokensApi
                     Results.Json(new { title = "Service Unavailable", detail = errorDetail }, statusCode: 503),
                 _ => Results.StatusCode(500),
             };
-        }).RequireAuthorization();
+        });
 
         return app;
     }
