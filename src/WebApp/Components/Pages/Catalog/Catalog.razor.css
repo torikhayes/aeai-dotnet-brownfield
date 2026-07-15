@@ -1,4 +1,42 @@
-﻿.catalog {
+﻿.catalog-promo {
+    padding: 2rem 10rem;
+}
+
+.catalog-promo-video {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    max-height: 400px;
+}
+
+.catalog-promo-video-link {
+    display: block;
+    position: relative;
+}
+
+.catalog-promo-video-link:hover .catalog-promo-video-play {
+    background: rgba(0,0,0,0.75);
+}
+
+.catalog-promo-video-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 4rem;
+    color: #fff;
+    background: rgba(0,0,0,0.55);
+    border-radius: 50%;
+    width: 5rem;
+    height: 5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    pointer-events: none;
+}
+
+.catalog {
     padding: 0 10rem;
     display: flex;
     gap: 6rem;
